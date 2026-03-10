@@ -1,97 +1,128 @@
-# FGT Traffic Log (`tlog`) Columns
+# `$log-traffic` — Traffic/Firewall Sessions
 
-### Identification
+Richest log type. Represents completed or sampled firewall sessions. All common columns apply (see cols-common.md).
+
+## Session & Bytes
+
 | Column | Type | Description |
 |---|---|---|
-| `itime` | Int32 | Log receive time (Unix epoch) |
-| `devid` | String | Device ID |
-| `vd` | String | Virtual domain (VDOM) name |
-| `logid` | String | Log ID |
-| `type` | String | `traffic` |
-| `subtype` | String | `forward`, `local`, `multicast`, `sniffer` |
-| `level` | String | Severity |
-| `sessionid` | UInt32 | Firewall session ID |
+| `subtype` | String | `forward`, `local`, `multicast`, `sniffer`, `ztna` |
+| **`sentbyte`** | Nullable(UInt64) | Bytes sent (client→server) — closed sessions |
+| **`rcvdbyte`** | Nullable(UInt64) | Bytes received (server→client) — closed sessions |
+| **`sentdelta`** | Nullable(UInt64) | Delta bytes sent — long-lived sessions (prefer over `sentbyte`) |
+| **`rcvddelta`** | Nullable(UInt64) | Delta bytes received — long-lived sessions (prefer over `rcvdbyte`) |
+| `sentpkt` / `rcvdpkt` | Nullable(Int64) | Packets sent/received |
+| `sentpktdelta` / `rcvdpktdelta` | Nullable(UInt32) | Delta packets |
+| **`duration`** | Nullable(UInt32) | Session duration in seconds |
+| `durationdelta` | Nullable(UInt32) | Delta duration |
+| `wanin` / `wanout` | Nullable(UInt64) | WAN bytes in/out |
+| `lanin` / `lanout` | Nullable(UInt64) | LAN bytes in/out |
 
-### Source
+> **Bytes pattern:** `coalesce(sentdelta, sentbyte, 0)` — delta exists for long-lived sessions, byte for closed. Always use this form for bandwidth queries.
+> **logflag for bandwidth:** use `bitAnd(logflag,bitOr(1,32))>0` to include long-lived sessions.
+
+## NAT
+
 | Column | Type | Description |
 |---|---|---|
-| `srcip` | Nullable(IPv6) | Source IP — use `ipstr(srcip)` to display |
-| `srcport` | Int32 | Source port |
-| `srcintf` | String | Source interface |
-| `srcintfrole` | String | Interface role (lan/wan/dmz) |
-| `srcmac` | String | Source MAC |
-| `srccountry` | String | Source country |
-| `srcuuid` | String | Source address object UUID |
-| `srcserver` | Int32 | Source is a server (1/0) |
+| `tranip` / `transip` | Nullable(IPv6) | NAT translated destination/source IP |
+| `tranport` / `transport` | Nullable(UInt16) | NAT translated port |
+| `trandisp` | LowCardinality(String) | NAT type: `snat`, `dnat`, `noop` |
+| `vip` | Nullable(String) | VIP name |
 
-### Destination
+## Application
+
 | Column | Type | Description |
 |---|---|---|
-| `dstip` | Nullable(IPv6) | Destination IP — use `ipstr(dstip)` |
-| `dstport` | Int32 | Destination port |
-| `dstintf` | String | Destination interface |
-| `dstintfrole` | String | Interface role |
-| `dstcountry` | String | Destination country |
-| `dstuuid` | String | Destination address object UUID |
+| **`app`** | LowCardinality(String) | Application name — may be `"N/A"`, use `nullifna()` |
+| **`appcat`** | LowCardinality(String) | Application category |
+| `appid` | Nullable(UInt32) | Application ID |
+| **`apprisk`** | LowCardinality(String) | Risk: `critical`, `high`, `medium`, `low`, `elevated` |
+| `appact` | LowCardinality(String) | App control action |
+| `applist` | LowCardinality(String) | App control profile name |
+| `apps` | Array(String) | Array of app names — use `arrayJoin()` or `has()` |
+| `countapp` | Nullable(UInt32) | App-ctrl UTM event count |
 
-### NAT
+## UTM / Security Summary (on traffic rows)
+
 | Column | Type | Description |
 |---|---|---|
-| `tranip` | Nullable(IPv6) | Translated (NAT) destination IP |
-| `tranport` | Int32 | Translated destination port |
-| `transip` | Nullable(IPv6) | Translated source IP |
-| `transport` | Int32 | Translated source port |
-
-### Protocol / Service / Policy
-| Column | Type | Description |
-|---|---|---|
-| `proto` | Int32 | IP protocol (6=TCP, 17=UDP, 1=ICMP) |
-| `service` | String | Service name (e.g. `HTTPS`, `DNS`) |
-| `policyid` | Int32 | Policy ID (0 = implicit deny) |
-| `policyname` | String | Policy name |
-| `policytype` | String | Policy type |
-| `poluuid` | String | Policy UUID |
-
-### Action / Bytes / Duration
-| Column | Type | Description |
-|---|---|---|
-| `action` | String | `accept`, `deny`, `close`, `ip-conn`, `timeout` |
-| `logflag` | Nullable(Int32) | Bitmask flags — use `${MACRO}` or `bitAnd()` |
-| `sentbyte` | Int64 | Bytes sent (client→server) |
-| `rcvdbyte` | Int64 | Bytes received (server→client) |
-| `sentpkt` | Int64 | Packets sent |
-| `rcvdpkt` | Int64 | Packets received |
-| `duration` | Int32 | Session duration (seconds) |
-
-### User
-| Column | Type | Description |
-|---|---|---|
-| `user` | String | Authenticated username |
-| `srcuser` | String | Source user |
-| `group` | String | User group |
-| `authserver` | String | Authentication server |
-
-### Application (UTM)
-| Column | Type | Description |
-|---|---|---|
-| `app` | String | Application name |
-| `appcat` | String | Application category |
-| `applist` | String | App control profile |
-| `appid` | Int32 | Application ID |
-| `apprisk` | String | Risk level |
-| `utmaction` | String | UTM action |
-| `utmevent` | String | UTM event type |
-| `countapp` | Int32 | App ctrl event count |
-| `countweb` | Int32 | Web filter event count |
-| `countav` | Int32 | AV event count |
-| `countips` | Int32 | IPS event count |
-
-### Array columns (use `arrayJoin()` or `has()`)
-| Column | Type | Description |
-|---|---|---|
+| **`utmaction`** | LowCardinality(String) | UTM action: `allow`, `block`, `passthrough` |
+| **`utmevent`** | LowCardinality(String) | UTM event type: `webfilter`, `app-ctrl`, `ips`, `av`, `dns` |
+| `utmsubtype` | Nullable(String) | UTM sub-event |
+| **`attack`** | LowCardinality(String) | IPS attack name (summary) |
+| **`virus`** | LowCardinality(String) | AV virus name (summary) |
+| **`catdesc`** | LowCardinality(String) | Web category description |
+| `dlpsensor` | Nullable(String) | DLP sensor triggered |
+| `countav` / `countdlp` / `countemail` / `countips` / `countweb` | Nullable(UInt32) | UTM event counts per type |
+| `countff` / `countssh` / `countssl` / `countdns` / `countwaf` | Nullable(UInt32) | UTM event counts per type |
 | `threats` | Array(String) | Threat names |
 | `threattyps` | Array(String) | Threat types |
-| `apps` | Array(String) | All application names in session |
 | `threatwgts` | Array(Int32) | Threat weights |
 | `threatcnts` | Array(Int16) | Threat counts |
-| `threatlvls` | Array(Int8) | Threat severity levels |
+| `threatlvls` | Array(Int8) | Threat levels |
+
+## User Identity
+
+| Column | Type | Description |
+|---|---|---|
+| **`user`** | LowCardinality(String) | Authenticated user — may be `"N/A"` |
+| **`unauthuser`** | LowCardinality(String) | Unauthenticated user — may be `"N/A"` |
+| `dstunauthuser` | Nullable(String) | Destination unauthenticated user |
+| `dstuser` | Nullable(String) | Destination user |
+| `clouduser` | Nullable(String) | Cloud user identity |
+| `emstag` / `emstag2` | Nullable(String) | EMS tags from FortiClient |
+
+## Device Fingerprinting
+
+| Column | Type | Description |
+|---|---|---|
+| `devtype` | LowCardinality(String) | Source device type |
+| `devcategory` | LowCardinality(String) | Source device category |
+| `dstdevtype` | LowCardinality(String) | Destination device type |
+| `osname` / `osversion` | LowCardinality/Nullable(String) | Source OS name/version |
+| `dstosname` | LowCardinality(String) | Destination OS name |
+| `srcmac` | Nullable(String) | Source MAC address |
+| `srcmacvendor` | Nullable(String) | Source MAC vendor |
+
+## HTTP-specific
+
+| Column | Type | Description |
+|---|---|---|
+| `httpmethod` | Nullable(String) | `GET`, `POST`, etc. |
+| `statuscode` | Nullable(String) | HTTP status code |
+| `scheme` | Nullable(String) | `http`, `https` |
+| `referralurl` | Nullable(String) | HTTP referral URL |
+| `reqlength` / `resplength` | Nullable(UInt64) | Request/response length |
+| `reqtime` / `resptime` | Nullable(UInt64) | Request/response time (μs) |
+
+## Networking
+
+| Column | Type | Description |
+|---|---|---|
+| `accessproxy` | Nullable(String) | Access proxy name |
+| `tunnelid` | Nullable(UInt32) | VPN tunnel ID |
+| `vwlid` | Nullable(UInt32) | SD-WAN rule ID |
+| `vwlservice` / `vwlname` | Nullable(String) | SD-WAN service/policy name |
+
+## Standard logflag Filters
+
+```sql
+-- Sessions (most queries)
+WHERE $filter AND (bitAnd(logflag,1)>0)
+
+-- Bandwidth (include long-lived)
+WHERE $filter AND (bitAnd(logflag,bitOr(1,32))>0)
+
+-- Blocked only
+WHERE $filter AND (bitAnd(logflag,2)>0)
+
+-- End users only (exclude FCT system user)
+WHERE $filter AND (bitAnd(logflag,1)>0) AND (bitAnd(logflag,8)=0)
+```
+
+## Canonical User Identity Pattern
+
+```sql
+coalesce(nullifna(`user`), nullifna(`unauthuser`), ipstr(`srcip`)) AS user_src
+```

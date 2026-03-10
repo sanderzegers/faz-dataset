@@ -1,0 +1,55 @@
+# `$log-fct-event` — FortiClient Event Log
+
+**Important differences from FortiGate logs:** endpoint-agent logs, not network device logs.
+- No `srcip`/`dstip` — uses `deviceip`/`remip` instead
+- `logid` is **UInt64** (not String) — do NOT use `logid_to_int()`
+- No `sessionid` / `policyid`
+
+All common columns apply where relevant (see cols-common.md).
+
+| Column | Type | Description |
+|---|---|---|
+| `subtype` | LowCardinality(String) | `av`, `webfilter`, `app-ctrl`, `vpn`, `endpoint`, `vulnerability`, `ems` |
+| **`hostname`** | LowCardinality(String) | Client machine hostname |
+| `deviceip` | Nullable(IPv6) | Client device IP |
+| `devicemac` | Nullable(String) | Client device MAC |
+| `user` | LowCardinality(String) | Logged-in user |
+| **`os`** | LowCardinality(String) | OS string: `"Windows 10,x64,10.0.19041"` — use `split_part(os,',',1)` for OS family |
+| `fctver` | Nullable(String) | FortiClient version |
+| `emsserial` | LowCardinality(String) | EMS serial number |
+| `fgtserial` | LowCardinality(String) | Connected FortiGate serial |
+| `uid` | Nullable(UUID) | FortiClient instance UUID |
+| `logid` | **UInt64** | Log ID — integer, NOT string, no `logid_to_int()` needed |
+| **`action`** | LowCardinality(String) | `blocked`, `allowed`, `detected`, `quarantine`, `removed` |
+| **`virus`** | LowCardinality(String) | Detected virus/malware name |
+| **`app`** | LowCardinality(String) | Application name |
+| `appid` | Nullable(UInt32) | Application ID |
+| `apppath` | Nullable(String) | Application file path |
+| `appversion` / `appvendor` | Nullable(String) | Application metadata |
+| **`vulnid`** | Nullable(UInt64) | Vulnerability ID |
+| **`vulnname`** | LowCardinality(String) | Vulnerability name |
+| `vulnseverity` | LowCardinality(String) | Vulnerability severity |
+| `vulncat` | LowCardinality(String) | Vulnerability category |
+| `vulncvss` | Nullable(String) | CVSS score |
+| `vulnref` | Nullable(String) | CVE reference |
+| **`vpntunnel`** | LowCardinality(String) | VPN tunnel name |
+| `vpntype` / `vpnstate` | Nullable(String) | VPN type/state |
+| `remotegw` | Nullable(IPv6) | Remote VPN gateway IP |
+| `cat` / `catdesc` | LowCardinality | Web category / description |
+| `hostname` | LowCardinality(String) | Web destination hostname |
+| `url` | Nullable(String) | URL |
+| `epmgmtst` | LowCardinality(String) | Endpoint management status |
+| `eponlinest` | LowCardinality(String) | Endpoint online status |
+| `epplace` | LowCardinality(String) | `on-net`, `off-net` |
+| `score` | Nullable(Int64) | Risk score |
+
+## Key Pattern
+
+```sql
+-- OS distribution
+SELECT split_part(os, ',', 1) AS os_family, count(*) AS cnt
+FROM $log-fct-event
+WHERE $filter AND nullifna(os) IS NOT NULL
+GROUP BY os_family
+ORDER BY cnt DESC
+```
