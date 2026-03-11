@@ -73,6 +73,7 @@ WHERE ($pre_period OR $filter) AND (bitAnd(logflag,1)>0)
 | `$flex_timestamp(col)` | Bucket by explicit column instead of `itime` |
 | `$start_time` / `$end_time` | Report period start/end Unix timestamps |
 | `$timespan` | Report period duration in seconds |
+| `$days_num` | Number of days in the report period — use for daily averages: `sum(x)/$days_num` |
 
 ```sql
 -- Standard time series pattern
@@ -92,18 +93,68 @@ ORDER BY hodex
 
 ## ${MACRO} Expansions
 
+logflag bit constants (expand to numeric strings):
+
+| Macro | Value |
+|---|---|
+| `${FGTLOG_F_REPORT_SESSION}` | `1` |
+| `${FGTLOG_F_BLOCKED_ACTION}` | `2` |
+| `${FGTLOG_F_CLOUD_APP}` | `4` |
+| `${FGTLOG_F_FCT_SYSUSR}` | `8` |
+| `${FGTLOG_F_BOTNET}` | `16` |
+| `${FGTLOG_F_LONGLIVE_SESSION}` | `32` |
+
+logflag condition macros:
+
 | Macro | Expands to |
 |---|---|
 | `${REPORT_SESSION}` | `(bitAnd(logflag,1)>0)` |
 | `${REPORT_SESSION_WITH_LONGLIVE}` | `(bitAnd(logflag,bitOr(1,32))>0)` |
+| `${REPORT_BLOCK_SESSION}` | `(bitAnd(logflag,bitOr(1,2))=bitOr(1,2))` |
 | `${BLOCKED_ACTION}` | `(bitAnd(logflag,2)>0)` |
+| `${BLOCKED_SESSION}` | `(CASE WHEN (bitAnd(logflag,2)>0) THEN 1 ELSE 0 END)` |
 | `${IS_BOTNET}` | `(bitAnd(logflag,16)>0)` |
 | `${IS_FCT_ENDUSER}` | `(logflag is null or bitAnd(logflag,8)=0)` |
+
+UTM event macros:
+
+| Macro | Expands to |
+|---|---|
 | `${WEB_UTM_EVENT}` | `utmevent in ('webfilter','banned-word','web-content','command-block','script-filter')` |
+| `${WEB_SESSION}` | `(countweb>0 or ((logver is null or logver<502000000) and (hostname is not null or ${WEB_UTM_EVENT})))` |
 | `${AV_UTM_EVENT}` | `utmevent is not null and virus is not null` |
 | `${APPCTRL_UTM_EVENT}` | `utmevent in ('app-ctrl')` |
 | `${ATTACK_UTM_EVENT}` | `utmevent in ('ips')` |
+| `${EMAIL_UTM_EVENT}` | `utmevent in ('general-email-log', 'spamfilter')` |
 | `${EMAIL_SEND_SERVICE}` | `service IN ('smtp','SMTP','25/tcp','587/tcp','smtps','SMTPS','465/tcp')` |
+| `${EMAIL_RECV_SERVICE}` | `service IN ('pop3','POP3','110/tcp','imap','IMAP','143/tcp','imaps','IMAPS','993/tcp','pop3s','POP3S','995/tcp')` |
+
+Identity macros:
+
+| Macro | Expands to |
+|---|---|
+| `${USER}` | `coalesce(nullifna(\`user\`), nullifna(\`unauthuser\`))` |
+| `${USER_SRC}` | `coalesce(f_user, euname, ipstr(\`srcip\`))` |
+| `${EP_SRC}` | `coalesce(epname, ipstr(\`srcip\`))` |
+| `${SAAS_USER}` | `coalesce(nullifna(\`user\`), nullifna(\`clouduser\`), nullifna(\`unauthuser\`), srcname, ipstr(\`srcip\`))` |
+| `${DLDN_USER}` | `dldn_user` |
+| `${SOC_EX_FLDS}` | `dvid, srcip, dstip, epid, euid` |
+
+Threat direction macros (IPS):
+
+| Macro | Expands to |
+|---|---|
+| `${THREAT_DSTIP}` | `(CASE WHEN direction='incoming' THEN srcip ELSE dstip END)` |
+| `${THREAT_SRCIP}` | `(CASE WHEN direction='incoming' THEN dstip ELSE srcip END)` |
+
+Severity mapping macros:
+
+| Macro | Expands to |
+|---|---|
+| `${LEVEL2SEVID}` | `(CASE WHEN level IN ('critical','alert','emergency') THEN 5 WHEN level='error' THEN 4 WHEN level='warning' THEN 3 WHEN level='notice' THEN 2 ELSE 1 END)` |
+| `${SEVID2SEVERITY}` | `(CASE sevid WHEN 5 THEN 'Critical' WHEN 4 THEN 'High' WHEN 3 THEN 'Medium' WHEN 2 THEN 'Info' ELSE 'Low' END)` |
+| `${FCTVULNSEV2ID}` | `(CASE vulnseverity WHEN 'Critical' THEN 5 WHEN 'High' THEN 4 WHEN 'Medium' THEN 3 WHEN 'Info' THEN 2 WHEN 'Low' THEN 1 ELSE 0 END)` |
+| `${EVENTSEV2STR}` | `(CASE severity WHEN 0 THEN 'Critical' WHEN 1 THEN 'High' WHEN 2 THEN 'Medium' WHEN 3 THEN 'Low' ELSE NULL END)` |
 
 ---
 
@@ -195,15 +246,19 @@ FROM ###(
 
 | Variable | Contains |
 |---|---|
-| `$ADOM_ENDPOINT` | Endpoint devices — join on `epid`; filter `epid > 1024` |
-| `$ADOM_ENDUSER` | End users — join on `euid`; filter `euid > 1024` |
-| `$ADOM_EPEU_DEVMAP` | Endpoint↔user device mapping |
+| `$ADOM_ENDPOINT` | `faz_fabric_endpoints` — join on `epid`; filter `epid > 1024` |
+| `$ADOM_ENDUSER` | `faz_fabric_endusers` — join on `euid`; filter `euid > 1024` |
+| `$ADOM_EPEU_DEVMAP` | `faz_fabric_epeudevmap` — endpoint↔user device mapping |
+| `$ADOM_EP_SOFTWARE` | `faz_fabric_endpoints_software` — endpoint software inventory |
+| `$ADOM_EP_VULN` | `faz_fabric_endpoints_vuln_map` — endpoint vulnerability map |
 | `$ADOM_INTF_INFO` | Interface information |
 | `$ADOM_INTF_STATS` | Interface statistics |
 | `$ADOM_SDWAN_INTF_INFO` | SD-WAN interface info |
-| `$ADOMTBL_PLHD_POLINFO` | Policy info — join via `poluuid = polinfo.uuid` |
-| `$ADOMTBL_PLHD_AUDIT_HST` | Audit history |
-| `$ADOMTBL_PLHD_IOC_VERDICT` | IoC verdict data |
+| `$ADOMTBL_PLHD_POLINFO` | `faz_fabric_polinfo` — policy info; join via `poluuid = polinfo.uuid` |
+| `$ADOMTBL_PLHD_AUDIT_HST` | `faz_fabric_audit_hst` — audit history |
+| `$ADOMTBL_PLHD_IOC_VERDICT` | `faz_fabric_ioc_verdict` — IoC verdict data |
+
+**Pattern:** `$ADOMTBL_PLHD_FOO` → `faz_fabric_foo` (lowercased suffix)
 
 **Endpoint join pattern:**
 ```sql
@@ -311,6 +366,12 @@ Rules: always DROP before CREATE, name as `rpt_tmptbl_N`, separate with `;`, fin
 | `left(col, n)` | Truncate string to n chars |
 | `JSONExtractString(col, key)` | Extract string from JSON column |
 | `bitAnd(a, b)` / `bitOr(a, b)` | Bitwise operations for logflag |
+| `lower(col)` | Lowercase string — use for case-insensitive compare on `utmevent`, `threat`, etc. |
+| `regexp_replace(col, pattern, replacement)` | Regex string replacement (e.g. strip OS build suffix) |
+| `timestampDiff('unit', col1, col2)` | Difference between two timestamps; units: `'second'`, `'millisecond'`, `'nanosecond'` |
+| `severity_s2i(col)` | Severity string → integer for sort (FCT vulnerability severity) |
+| `fct_webcat(threat)` | FortiClient web category from threat field |
+| `lagInFrame(col) OVER (PARTITION BY x ORDER BY y ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)` | Previous row value — use for state-change detection in window queries |
 
 ---
 
@@ -502,4 +563,137 @@ SOC tables:      $event (alerttime)  $incident (createtime)
 
 Fabric hint:     /*fabricStart*/ (per-ADOM subquery) /*fabricEnd*/
 Avoid:           ebtr_agg_flat()  ebtr_value()  — NOT installed
+
+Identity macros: ${USER}  ${USER_SRC}  ${EP_SRC}  ${SAAS_USER}
+Severity macros: ${LEVEL2SEVID}  ${SEVID2SEVERITY}  ${EVENTSEV2STR}  ${FCTVULNSEV2ID}
+IPS direction:   ${THREAT_SRCIP}  ${THREAT_DSTIP}
+```
+
+---
+
+## Grammar — Supported SQL Features
+
+The FAZ SQL dialect (ANTLR4 grammar) supports:
+
+**Statements:** SELECT, CREATE TEMPORARY TABLE, DROP TABLE, INSERT, UPDATE
+
+**Query structure:** UNION [ALL], WITH (CTE), subqueries, VALUES
+
+**Clauses:** SELECT [DISTINCT], FROM, JOIN (INNER/LEFT/RIGHT/FULL + ARRAY JOIN), WHERE, GROUP BY, HAVING, ORDER BY, LIMIT, OFFSET, SAMPLE, FOR
+
+**Expressions:** arithmetic (+,-,*,/), bitwise (AND/OR), comparisons (=,<,>,<=,>=,<>,!=), IS [NOT] NULL, LIKE, IN, BETWEEN, EXISTS, NOT, AND, OR, CASE WHEN...END
+
+**Functions:** scalar functions, aggregate functions, window functions (with OVER, PARTITION BY, frame clauses), higher-order functions (arrayMap, arrayFilter etc.), TRIM, SUBSTRING, quantile functions
+
+**Type casting:** CAST(x AS type), `::type` shorthand, VARCHAR, DECIMAL types
+
+**Other:** JSON attribute access, array constructors, subscript access, column aliases, table aliases
+
+---
+
+## Real Query Examples (from predefined datasets)
+
+### Window function — SD-WAN device down time tracking
+```sql
+SELECT devid, link_status,
+    (CASE WHEN link_status=0 THEN sum(etime-stime) END) AS down_time
+FROM (
+    SELECT devid, status_rank, max(link_status) AS link_status,
+           min(timestamp) AS stime, max(timestamp) AS etime
+    FROM (
+        SELECT devid, timestamp, link_status, status_switch,
+            sum(abs(coalesce(status_switch, 0)))
+                OVER (PARTITION BY devid ORDER BY timestamp
+                      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS status_rank
+        FROM (
+            SELECT timestamp, devid, link_status,
+                link_status - lagInFrame(link_status)
+                    OVER (PARTITION BY devid ORDER BY timestamp
+                          ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS status_switch
+            FROM (
+                SELECT itime AS timestamp, logdev_id AS devid,
+                    (CASE WHEN logid='220002' THEN 1 ELSE 0 END) AS link_status
+                FROM $log
+                WHERE $filter AND logid_to_int(logid) IN (220001, 220002)
+            ) t
+            GROUP BY timestamp, devid ORDER BY timestamp
+        ) t
+    ) t
+) t
+WHERE status_rank IS NOT NULL
+GROUP BY devid, status_rank HAVING min(timestamp) != max(timestamp)
+GROUP BY devid, link_status
+ORDER BY down_time DESC
+```
+
+### Conditional aggregation — cache hit rate
+```sql
+SELECT root_domain(hostname) AS host,
+    sum(CASE WHEN resptype='cached' THEN 1 ELSE 0 END) AS cache_num,
+    sum(CASE WHEN resptype IN ('normal','generated') THEN 1 ELSE 0 END) AS normal_num
+FROM $log
+WHERE $filter AND hostname IS NOT NULL AND subtype='http-transaction'
+GROUP BY host
+ORDER BY cache_num DESC, normal_num DESC
+```
+
+### Response time comparison — nanosecond precision
+```sql
+SELECT root_domain(hostname) AS host,
+    sum(CASE WHEN resptype='cached'
+        THEN timestampDiff('nanosecond', reqtime, respfinishtime) ELSE 0 END) AS cache_time,
+    sum(CASE WHEN resptype IN ('normal','generated')
+        THEN timestampDiff('nanosecond', reqtime, respfinishtime) ELSE 0 END) AS normal_time
+FROM $log
+WHERE $filter AND hostname IS NOT NULL AND subtype='http-transaction'
+GROUP BY host
+ORDER BY cache_time DESC
+```
+
+### Daily average using $days_num
+```sql
+SELECT cast(sum(sessions)/$days_num AS decimal(18,0)) AS ave_session
+FROM ###(
+    SELECT $flex_timestamp AS timestamp, subtype, src, dst,
+           count(*) AS sessions,
+           sum(ibytes+obytes) AS bandwidth
+    FROM $log
+    WHERE $filter
+    GROUP BY timestamp, subtype, src, dst
+    ORDER BY sessions DESC, bandwidth DESC
+)### t
+WHERE subtype='slb_http'
+```
+
+### FCT regex — strip OS build suffix
+```sql
+SELECT uid AS fctuid,
+    regexp_replace(os, '\\(build.*', '') AS os_short,
+    fctver, subtype, fgtserial
+FROM $log
+WHERE $filter AND subtype != 'admin'
+GROUP BY uid, os_short, fctver, subtype, fgtserial
+```
+
+### Severity classification with sort key
+```sql
+SELECT devid, vulnname, vulnseverity,
+    severity_s2i(vulnseverity) AS severity_level,
+    vulnid
+FROM $log
+WHERE $filter AND vulnname IS NOT NULL
+GROUP BY devid, vulnname, vulnseverity, severity_level, vulnid
+ORDER BY severity_level DESC
+```
+
+### FortiClient web category
+```sql
+SELECT fct_webcat(threat) AS category,
+    remotename AS website,
+    count(*) AS requests
+FROM $log
+WHERE $filter AND direction='outbound' AND threat IS NOT NULL
+    AND utmaction='passthrough' AND lower(utmevent)='webfilter'
+GROUP BY category, website
+ORDER BY requests DESC
 ```

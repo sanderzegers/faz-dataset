@@ -399,6 +399,14 @@ The raw start/end Unix timestamps of the report period. Available for use in exp
 ### `$timespan`
 The report period duration in seconds. Useful for rate calculations.
 
+### `$days_num`
+The number of days in the report period. Use for computing daily averages:
+
+```sql
+SELECT cast(sum(sessions)/$days_num AS decimal(18,0)) AS avg_sessions_per_day
+FROM ###(...)### t
+```
+
 ### `$flex_timestamp(col)` (with explicit column argument)
 `$flex_timestamp` normally reads `itime` implicitly. When you need to bucket by a different timestamp column, call it with an argument:
 
@@ -890,6 +898,46 @@ Truncates a string to n characters. Use for long aggregated strings in display.
 
 ```sql
 left(string_agg(distinct url, ','), 1000) AS url_list
+```
+
+### `lower(col)`
+Lowercase a string. Use for case-insensitive comparison on `utmevent`, `threat`, `subtype` etc.
+
+```sql
+WHERE lower(utmevent) = 'webfilter'
+WHERE lower(utmevent) IN ('antivirus', 'antimalware')
+WHERE lower(threat) LIKE '%botnet%'
+```
+
+### `timestampDiff('unit', col1, col2)`
+Difference between two timestamps. Units: `'second'`, `'millisecond'`, `'nanosecond'`.
+
+```sql
+timestampDiff('nanosecond', reqtime, respfinishtime) AS latency_ns
+```
+
+### `severity_s2i(col)`
+Converts a severity string to a sortable integer (FortiClient vulnerability severity). Use for `ORDER BY severity_level DESC`.
+
+```sql
+severity_s2i(vulnseverity) AS severity_level
+```
+
+### `fct_webcat(threat)`
+Returns the web category name from a FortiClient threat field.
+
+```sql
+fct_webcat(threat) AS category
+```
+
+### `lagInFrame(col) OVER (...)`
+Window function — returns the previous row's value. Use for detecting state changes (e.g. link up/down transitions).
+
+```sql
+link_status - lagInFrame(link_status) OVER (
+    PARTITION BY devid ORDER BY timestamp
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+) AS status_switch
 ```
 
 ---
