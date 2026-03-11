@@ -1,139 +1,59 @@
 # faz-dataset — Claude Code Skill
 
-A [Claude Code skill](https://docs.anthropic.com/en/docs/claude-code/skills) that turns Claude into an expert at writing **Fortinet FortiAnalyzer dataset queries** for use in:
+A [Claude Code skill](https://docs.anthropic.com/en/docs/claude-code/skills) that turns Claude into an expert at writing **FortiAnalyzer dataset queries** for use under **Reports > Datasets** (or Report Templates > Chart Dataset) in the FAZ GUI.
 
-- **Reports → Datasets**
-- **Report Templates → Chart Dataset**
-
-The skill helps generate **correct, production-ready FAZ dataset queries** using the FortiAnalyzer SQL dialect.
-
-This Claude Code Skill is designed for FortiAnalyzer 7.6 and later.
-
-------
-
-# What the Skill Does
+## What it does
 
 When invoked, the skill loads:
 
-- The **FortiAnalyzer SQL dialect reference**
-   (macros, syntax, query skeletons, hcache patterns)
-- The **column reference file for the requested log type only**
-   (to keep context focused and reduce hallucinations)
+- The FAZ SQL dialect reference (macros, syntax, query skeletons, hcache patterns)
+- Only the column-reference file that matches the requested log type
 
-Claude then:
+Claude then writes a complete, working query and explains any non-obvious clauses.
 
-1. Writes a **complete dataset query**
-2. Ensures it follows **FAZ dataset conventions**
-3. Explains any **non-obvious clauses or functions**
+## Supported log types
 
-------
+| Log type | Table alias |
+|---|---|
+| Traffic | `$log` → `*_tlog` |
+| Event | `$log` → `*_elog` |
+| Web Filter | `$log` → `*_wlog` |
+| App Control | `$log` → `*_alog` |
+| Antivirus | `$log` → `*_vlog` |
+| IPS / Security | `$log` → `*_slog` |
 
-# Supported Log Types
+## Usage
 
-| Log Type       | `$log` Alias Resolves To |
-| -------------- | ------------------------ |
-| Traffic        | `*_tlog`                 |
-| Event          | `*_elog`                 |
-| Web Filter     | `*_wlog`                 |
-| App Control    | `*_alog`                 |
-| Antivirus      | `*_vlog`                 |
-| IPS / Security | `*_slog`                 |
-
-------
-
-# Usage
-
-After installing the skill, you can simply describe the dataset you want.
-
-Example:
+Install the skill, then in any Claude Code session just describe what you want:
 
 ```
-/faz-dataset show top 10 sources by bytes for FortiGate traffic logs
+/faz-dataset  show top 10 sources by bytes for FortiGate traffic logs
 ```
 
-Claude will generate a **complete FortiAnalyzer dataset query** ready to paste into:
+Or let it trigger automatically when you paste a FAZ dataset question.
 
-```
-Reports → Datasets
-```
+## Key conventions enforced
 
-The skill may also **trigger automatically** when you ask a FortiAnalyzer dataset-related question.
+- Always `FROM $log` — never a hardcoded table name
+- Always `WHERE $filter` — mandatory time/device scope
+- `${REPORT_SESSION}` for bandwidth/session queries
+- `###(subquery)###` for hcache cached subqueries
+- ClickHouse SQL functions: `toDateTime()`, `formatDateTime()`, `ipstr()`, `arrayJoin()`, `has()`, `bitAnd()`, `multiIf()`
 
-------
+## Installation
 
-# Query Conventions Enforced
-
-The skill ensures queries follow FortiAnalyzer best practices:
-
-- Always use:
-
-```
-FROM $log
-```
-
-Never hardcode log tables.
-
-- Always include:
-
-```
-WHERE $filter
-```
-
-This ensures proper **time and device scoping**.
-
-- Use `${REPORT_SESSION}` for **session / bandwidth queries**
-- Use **hcache subqueries** when appropriate:
-
-```
-###(subquery)###
-```
-
-- Prefer **ClickHouse SQL functions**, including:
-
-```
-toDateTime()
-formatDateTime()
-ipstr()
-arrayJoin()
-has()
-bitAnd()
-multiIf()
-```
-
-------
-
-# Installation
-
-Copy the skill directory into your Claude Code skills folder:
+Copy the `faz-dataset/` directory into your Claude Code skills folder:
 
 ```
 ~/.claude/skills/faz-dataset/
 ```
 
-Claude Code will automatically detect:
+Claude Code will detect `SKILL.md` and register the skill automatically.
 
-```
-SKILL.md
-```
+## Documentation
 
-and register the skill.
+This repo also includes a detailed guide to writing FortiAnalyzer dataset queries — not specific to the Claude skill, but useful for understanding how FAZ SQL works:
 
-------
+**[FortiAnalyzer Dataset Query Writing Guide](faz-dataset-query-guide.md)**
 
-# Documentation
-
-This repository also includes a **detailed guide to writing FortiAnalyzer dataset queries**, covering:
-
-- How FAZ dataset queries actually work
-- Query structure and execution model
-- Macros and hidden system behavior
-- Performance considerations
-- Practical query design patterns
-
-See:
-
-**Guide: Writing FortiAnalyzer Dataset Queries**
-
-*[Guide: FortiAnalyzer Dataset Query Writing Guide](faz-dataset-query-guide.md)*
-
-This guide is **not specific to the Claude skill** and can be useful when writing FAZ dataset queries manually.
+Topics covered: query structure, execution model, macros, hcache, performance, and practical patterns.
