@@ -16,8 +16,33 @@ These columns exist on every `$log-*` source.
 | **`type`** | LowCardinality(String) | Log type: `traffic`, `utm`, `event`, etc. |
 | **`subtype`** | LowCardinality(String) | Log subtype: `forward`, `webfilter`, `attack`, etc. |
 | **`level`** | LowCardinality(String) | Severity: `emergency`, `alert`, `critical`, `error`, `warning`, `notice`, `information`, `debug` |
-| **`action`** | LowCardinality(String) | Action taken: `accept`, `deny`, `block`, `pass`, `detected`, etc. |
+| **`action`** | LowCardinality(String) | Action taken — see values below |
 | **`logid`** | LowCardinality(String) | Log ID string — use `logid_to_int(logid)` for numeric compare |
+
+## `action` Values
+
+| Value | Context |
+|---|---|
+| `accept` | Traffic allowed by policy |
+| `deny` | Traffic denied by policy |
+| `block` / `blocked` | UTM block action |
+| `pass` / `pass_session` | Passed/monitored without blocking |
+| `detected` | IPS/AV detected but not blocked |
+| `dropped` | Packet dropped |
+| `reset` / `reset_client` / `reset_server` | TCP reset sent |
+| `close` | Session closed normally |
+| `clear_session` | Session cleared |
+| `timeout` | Session timed out |
+| `redirect` | Traffic redirected (e.g. captive portal) |
+| `log-only` | Logged only, no enforcement |
+| `exempt` | Exempted from inspection |
+| `tunnel-up` / `tunnel-down` | VPN tunnel state change |
+| `tunnel-stats` | VPN tunnel periodic stats |
+| `perf-stats` | Performance statistics log |
+| `ssl-login-fail` / `ipsec-login-fail` | VPN login failure |
+| `assoc-req` / `reassoc-req` | WiFi association request |
+| `login` / `logout` | Admin/user authentication events |
+| `set` / `add` / `delete` / `edit` / `clear` | Config change operations |
 | **`srcip`** | Nullable(IPv6) | Source IP — always use `ipstr()` for display |
 | **`dstip`** | Nullable(IPv6) | Destination IP — always use `ipstr()` for display |
 | **`srcport`** | Nullable(UInt16) | Source port |

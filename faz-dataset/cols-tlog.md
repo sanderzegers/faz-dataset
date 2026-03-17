@@ -47,13 +47,15 @@ Richest log type. Represents completed or sampled firewall sessions. All common 
 
 | Column | Type | Description |
 |---|---|---|
-| **`utmaction`** | LowCardinality(String) | UTM action: `allow`, `block`, `passthrough` |
-| **`utmevent`** | LowCardinality(String) | UTM event type: `webfilter`, `app-ctrl`, `ips`, `av`, `dns` |
+| **`utmaction`** | LowCardinality(String) | UTM action: `allow`, `block`, `blocked`, `pass`, `passthrough`, `quarantined`, `reset` |
+| **`utmevent`** | LowCardinality(String) | UTM event type: `webfilter`, `app-ctrl`, `ips`, `av`, `dns`, `appfirewall` |
 | `utmsubtype` | Nullable(String) | UTM sub-event |
 | **`attack`** | LowCardinality(String) | IPS attack name (summary) |
 | **`virus`** | LowCardinality(String) | AV virus name (summary) |
 | **`catdesc`** | LowCardinality(String) | Web category description |
 | `dlpsensor` | Nullable(String) | DLP sensor triggered |
+| **`fsaverdict`** | LowCardinality(String) | FortiSandbox verdict: `clean`, `low risk`, `medium risk`, `high risk`, `malicious` |
+| **`accessctrl`** | LowCardinality(String) | Cloud access control action: `upload`, `download`, `others` |
 | `countav` / `countdlp` / `countemail` / `countips` / `countweb` | Nullable(UInt32) | UTM event counts per type |
 | `countff` / `countssh` / `countssl` / `countdns` / `countwaf` | Nullable(UInt32) | UTM event counts per type |
 | `threats` | Array(String) | Threat names |

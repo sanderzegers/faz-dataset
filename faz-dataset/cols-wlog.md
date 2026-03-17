@@ -10,7 +10,7 @@ All common columns apply (see cols-common.md).
 | **`catdesc`** | LowCardinality(String) | Category description (e.g. `"Search Engines"`) |
 | **`action`** | LowCardinality(String) | `passthrough`, `blocked`, `warning`, `authenticate`, `override` |
 | **`utmaction`** | LowCardinality(String) | `allow`, `block` |
-| **`utmevent`** | LowCardinality(String) | `webfilter`, `banned-word`, `web-content`, `command-block`, `script-filter` |
+| **`utmevent`** | LowCardinality(String) | `webfilter`, `banned-word`, `web-content`, `command-block`, `script-filter`, `spamfilter`, `general-email-log` |
 | **`filtertype`** | LowCardinality(String) | What matched: `category`, `urlfilter`, `keyword`, `ftgd` |
 | `ruletype` | LowCardinality(String) | Rule type |
 | `reqtype` | LowCardinality(String) | `direct`, `referral` |
@@ -30,6 +30,24 @@ All common columns apply (see cols-common.md).
 | `sentbyte` / `rcvdbyte` | Nullable | Session bytes |
 | `eventtype` | LowCardinality(String) | `ftgd-cat`, `ftgd-err`, `ftgd-block`, `urlfilter`, `override` |
 | `from` / `to` | LowCardinality(String) | Email from/to (webmail) |
+
+## Notable `catdesc` Values
+
+These category descriptions appear frequently in queries and reports:
+
+| `catdesc` Value | Notes |
+|---|---|
+| `Malicious Websites` | Drive-by malware, exploits |
+| `Phishing` | Credential phishing sites |
+| `Proxy Avoidance` | Anonymizers, VPN bypass services |
+| `Spam URLs` | URLs found in spam email |
+| `Dynamic DNS` | DDNS hostnames — often abused by C2 |
+| `Newly Observed Domain` | Domain seen for the first time recently |
+| `Newly Registered Domain` | Freshly registered domain |
+| `Streaming Media and Download` | Video/audio streaming, file downloads |
+| `Unknown` / `Unrated` | No category data available |
+
+> Use `catdesc IN ('Malicious Websites','Phishing','Proxy Avoidance','Spam URLs')` for threat-related category filtering.
 
 ## Key Patterns
 

@@ -6,7 +6,7 @@ All common columns apply (see cols-common.md).
 |---|---|---|
 | **`attack`** | LowCardinality(String) | Attack/signature name — use `nullifna()` |
 | **`attackid`** | Nullable(UInt32) | Numeric attack ID |
-| **`severity`** | LowCardinality(String) | `critical`, `high`, `medium`, `low`, `info` |
+| **`severity`** | LowCardinality(String) | `critical`, `high`, `medium`, `low`, `info`, `debug` |
 | **`direction`** | LowCardinality(String) | `incoming`, `outgoing` |
 | `ref` | Nullable(String) | External reference URL |
 | `attackcontext` | Nullable(String) | Attack context data |

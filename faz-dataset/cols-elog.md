@@ -12,8 +12,8 @@ Event logs cover many subtypes with ~200 columns. All common columns apply (see 
 | **`msg`** | Nullable(String) | Human-readable event message |
 | **`user`** | LowCardinality(String) | User who triggered event |
 | **`ui`** | Nullable(String) | UI method: `ssh`, `https`, `console`, `jsconsole` |
-| **`action`** | LowCardinality(String) | `login`, `logout`, `set`, `add`, `delete`, `edit`, `clear` |
-| `status` | Nullable(String) | Event status: `success`, `failed` |
+| **`action`** | LowCardinality(String) | `login`, `logout`, `set`, `add`, `delete`, `edit`, `clear`, `tunnel-up`, `tunnel-down`, `tunnel-stats`, `perf-stats`, `ssl-login-fail`, `ipsec-login-fail`, `assoc-req`, `reassoc-req` |
+| `status` | Nullable(String) | Event status: `success`, `failed`, `down`, `DOWN`, `end`, `closed`, `traffic-count` |
 | `result` | LowCardinality(String) | Operation result |
 | `reason` | LowCardinality(String) | Reason for event |
 | `error` | Nullable(String) | Error message |
@@ -53,7 +53,7 @@ ORDER BY dtime DESC
 | Column | Type | Description |
 |---|---|---|
 | **`vpntunnel`** | LowCardinality(String) | VPN tunnel name |
-| `tunneltype` | Nullable(String) | `ipsec`, `ssl`, `pptp` |
+| `tunneltype` | Nullable(String) | `ipsec`, `ssl`, `ssl-tunnel`, `ssl-web`, `pptp` |
 | `tunnelid` | Nullable(UInt32) | Tunnel ID |
 | `remip` | Nullable(IPv6) | Remote IP |
 | `locip` | Nullable(IPv6) | Local IP |
