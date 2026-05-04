@@ -368,6 +368,7 @@ Rules: always DROP before CREATE, name as `rpt_tmptbl_N`, separate with `;`, fin
 | `bitAnd(a, b)` / `bitOr(a, b)` | Bitwise operations for logflag |
 | `lower(col)` | Lowercase string — use for case-insensitive compare on `utmevent`, `threat`, etc. |
 | `regexp_replace(col, pattern, replacement)` | Regex string replacement (e.g. strip OS build suffix) |
+| `regexp_extract(col, pattern)` | Extract first regex match — e.g. `regexp_extract(switchphysicalport, '(\\d+)$')` for trailing digits. **Use snake_case, NOT ClickHouse `regexExtract`** |
 | `timestampDiff('unit', col1, col2)` | Difference between two timestamps; units: `'second'`, `'millisecond'`, `'nanosecond'` |
 | `severity_s2i(col)` | Severity string → integer for sort (FCT vulnerability severity) |
 | `fct_webcat(threat)` | FortiClient web category from threat field |
@@ -477,7 +478,7 @@ ORDER BY hits DESC
 8. **HAVING vs WHERE** — can't `WHERE sum(x) > 0`, use `HAVING sum(x) > 0`
 9. **epid/euid < 1024** — system IDs, null out before joining
 10. **`$filter-drilldown` inside hcache** — must go on outer query only
-
+11. **ClickHouse camelCase function names** — FAZ exposes string/regex helpers in snake_case. Use `regexp_extract`, `regexp_replace` — NOT `regexExtract`, `replaceRegexpOne`, etc. When unsure, mirror the casing of functions already documented (e.g. `regexp_replace`)
 ---
 
 ## Key Enum Values
