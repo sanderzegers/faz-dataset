@@ -25,3 +25,36 @@ All common columns apply (see cols-common.md).
 | `eventtype` | LowCardinality(String) | DLP event type |
 | `subservice` | Nullable(String) | Sub-service |
 | `sentbyte` / `rcvdbyte` | — | Bytes |
+
+## Real Values Discovered from FAZ Instance
+
+> No DLP logs were found in the queried time window (2026-09-21 to 2026-09-28).
+> Values below are from the FAZ 7.6.6 reference.
+
+### `action` (DLP Action)
+
+| Value | Notes |
+|---|---|
+| `allow` | Allowed |
+| `block` | Blocked |
+| `monitor` | Monitored |
+| `exempt` | Exempted |
+
+### `category` (DLP Category)
+
+| Value | Notes |
+|---|---|
+| `credit-card` | Credit card numbers |
+| `ssn` | Social Security Numbers |
+| `confidential` | Confidential content |
+| `pii` | Personally identifiable information |
+| `custom` | Custom patterns |
+
+### `subtype` (DLP Subtype)
+
+| Value | Notes |
+|---|---|
+| `email` | Email DLP |
+| `web` | Web DLP |
+| `file-transfer` | File transfer DLP |
+| `application` | Application DLP |

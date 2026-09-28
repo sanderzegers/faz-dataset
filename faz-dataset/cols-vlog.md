@@ -41,3 +41,20 @@ WHERE $filter AND nullifna(virus) IS NOT NULL
 GROUP BY virus
 ORDER BY detections DESC
 ```
+
+## Real Values Discovered from FAZ Instance
+
+### `action` (Virus Action)
+
+Observed from FAZ virus logs:
+
+| Value | Notes |
+|---|---|
+| `analytics` | Sent to FortiSandbox |
+| `monitored` | Monitored only |
+
+### `level` (Virus Level)
+
+| Value | Notes |
+|---|---|
+| `information` | Informational |

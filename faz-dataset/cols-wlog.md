@@ -76,3 +76,61 @@ ORDER BY hits DESC
 
 -- ${WEB_UTM_EVENT} macro = utmevent IN ('webfilter','banned-word','web-content','command-block','script-filter')
 ```
+
+## Real Values Discovered from FAZ Instance
+
+### `action` (Webfilter Action)
+
+Observed from FAZ webfilter logs:
+
+| Value | Notes |
+|---|---|
+| `allow` | Allowed |
+| `block` | Blocked |
+
+### `utmaction` (UTM Action)
+
+| Value | Notes |
+|---|---|
+| `allow` | Allowed |
+| `block` | Blocked |
+
+### `level` (Webfilter Level)
+
+| Value | Notes |
+|---|---|
+| `information` | Informational |
+
+### `utmevent` (UTM Event)
+
+| Value | Notes |
+|---|---|
+| `webfilter` | Web filter event |
+| `banned-word` | Banned word match |
+| `web-content` | Web content filter |
+| `command-block` | Command block |
+| `script-filter` | Script filter |
+| `spamfilter` | Spam filter |
+| `general-email-log` | General email log |
+
+
+### `hostname` (Request Hostname)
+
+Observed hostnames from FAZ webfilter logs:
+
+| Pattern | Examples |
+|---|---|
+| Cloud auth | `login.cloudauth.example.com`, `outlook.office.example.com`, `autologon.microsoftazuread-sso.example.com`, `settings-win.data.example.com`, `vortex.data.example.com`, `browser.events.data.example.com`, `mobile.events.data.example.com`, `eu-mobile.events.data.example.com`, `eu-office.events.data.example.com`, `v10.events.data.example.com` |
+| Collaboration | `teams.example.com`, `teams.events.data.example.com`, `config.teams.example.com`, `statics.teams.cdn.example.net`, `teams.cloud.example.com` |
+| Email | `outlook.office.example.com`, `outlook.office.com` |
+| AI/Chat | `api.ai-assistant.example.com`, `chat.ai.example.com` |
+| Cloud storage | `bolt.cloud-storage.example.com`, `epivpn.example.group`, `start.cloudya.example.com` |
+| Privacy proxy | `mask.proxy.example.com`, `gateway.proxy.example.com`, `p139-contacts.proxy.example.com` |
+| Secure messaging | `grpc.chat.secure.example.org`, `config.edge.voice-call.example.com` |
+| Telemetry | `eu.api.security-monitor.example.com`, `http-intake.logs.us5.example.com`, `in.appcenter.example.com`, `telemetry.password-manager.example.com`, `analytics.endpoint.example.com` |
+| Banking | `banking-api.example.at`, `tools.example.at`, `payments.example.com` |
+| Enterprise tools | `enterprise.collab.example.net`, `xp.collab.example.com`, `ticket.service.example.com`, `wifi-controller.example.net` |
+| Regional sites | `www.example.at`, `vdb.example.at`, `vdbtest.example.at`, `www.regional.example.at`, `craft-beer.example.at`, `www.malt-craft.example.at`, `spirit-lovers.example.at` |
+| CDN/updates | `h10141.www1.device.example.com`, `grafana.example.com`, `apt.archive.os.example.com` |
+| SDKs/developer | `sdk-services.vendor.example.com`, `api.ipify.example.org` |
+| Custom IPs | `203.0.113.25`, `198.51.100.40` |

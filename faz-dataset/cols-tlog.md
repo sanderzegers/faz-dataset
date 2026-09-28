@@ -6,7 +6,6 @@ Richest log type. Represents completed or sampled firewall sessions. All common 
 
 | Column | Type | Description |
 |---|---|---|
-| `subtype` | String | `forward`, `local`, `multicast`, `sniffer`, `ztna` |
 | **`sentbyte`** | Nullable(UInt64) | Bytes sent (client→server) — closed sessions |
 | **`rcvdbyte`** | Nullable(UInt64) | Bytes received (server→client) — closed sessions |
 | **`sentdelta`** | Nullable(UInt64) | Delta bytes sent — long-lived sessions (prefer over `sentbyte`) |
@@ -128,3 +127,216 @@ WHERE $filter AND (bitAnd(logflag,1)>0) AND (bitAnd(logflag,8)=0)
 ```sql
 coalesce(nullifna(`user`), nullifna(`unauthuser`), ipstr(`srcip`)) AS user_src
 ```
+
+## Real Values Discovered from FAZ Instance
+
+Observed values from querying `query_logs` on the live FAZ instance (2026-09-28):
+
+### `action` (Traffic)
+
+| Value | Notes |
+|---|---|
+| `accept` | Session accepted |
+| `close` | Session closed |
+| `client-rst` | Client TCP RST |
+| `server-rst` | Server TCP RST |
+| `deny` | Denied |
+| `ip-conn` | IP connection |
+| `timeout` | Timed out |
+
+### `appcat` (Application Category)
+
+| Value | Notes |
+|---|---|
+| `Web.Client` | Most common — browsers |
+| `Network.Service` | DNS, NTP, protocols |
+| `Collaboration` | Teams, Slack |
+| `Email` | Email clients |
+| `Cloud.IT` | Cloud tools |
+| `Update` | Update services |
+| `General.Interest` | Google, web services |
+| `Remote.Access` | Remote access |
+| `Storage.Backup` | Cloud storage |
+| `Video/Audio` | Streaming |
+| `GenAI` | AI services |
+| `unknown` | Uncategorised |
+| `unscanned` | Not scanned |
+
+### `apprisk` (Application Risk)
+
+| Value | Notes |
+|---|---|
+| `low` | Low risk |
+| `medium` | Medium risk |
+| `elevated` | Elevated risk |
+| `high` | High risk |
+
+### `utmevent` (UTM Event)
+
+| Value | Notes |
+|---|---|
+| `AV.1` / `AV.2` / `AV.3` | Antivirus events |
+| `ips.1` / `ips.2` / `ips.3` / `ips.4` | IPS events |
+
+> **Unverified:** these conflict with the canonical `utmevent` values (`webfilter`, `ips`, `av`, …) that the `${*_UTM_EVENT}` macros rely on, so they probably came from a different column. Do not filter on them; use the macros or `lower(utmevent)`.
+
+### `level` (Traffic)
+
+| Value | Notes |
+|---|---|
+| `notice` | Most common |
+| `warning` | Warnings |
+
+### `srczone` / `dstzone`
+
+| Value | Notes |
+|---|---|
+| `LAN` | Local area network |
+| `WLAN` | Wireless LAN |
+| `WAN` | Wide area network |
+
+### `vdom`
+
+| Value | Notes |
+|---|---|
+| `root` | Default VDOM |
+
+### `profiletype`
+
+| Value | Notes |
+|---|---|
+| `application-control` | App control profile |
+| `ips` | IPS profile |
+| `antivirus` | Antivirus profile |
+
+
+### `policytype` (Policy Type)
+
+| Value | Notes |
+|---|---|
+| `local-in-policy` | Local-in policy (FAZ appliance-facing) |
+
+### `dstosname` (Destination OS Name)
+
+| Value | Notes |
+|---|---|
+| `FortiAnalyzer OS` | FAZ appliance OS |
+
+### `vwlquality` (SD-WAN Quality)
+
+Observed SD-WAN quality strings from FAZ traffic logs:
+
+| Pattern | Notes |
+|---|---|
+| `Seq_num(N H1_ISP1_1 VPN_INTERNAL), alive, latency: X.XXX, selected` | VPN tunnel quality |
+| `Seq_num(N Falcon_root EXTERNAL-SDWAN), alive, sla(0x1), gid(0), cfg_order(N), local cost(N), selected` | External SD-WAN |
+| `Seq_num(N Meadow_root EXTERNAL-SDWAN), alive, sla(0x1), gid(0), cfg_order(N), local cost(N), selected` | External SD-WAN |
+| `Seq_num(N EDGE_ISP1_1 VPN_INTERNAL), alive, latency: X.XXX, selected` | Edge ISP tunnel |
+
+> **Pattern:** `Seq_num({NUM} {TUNNEL-NAME} {ZONE}), alive, sla({HEX}), gid({NUM}), cfg_order({NUM}), local cost({NUM}), selected`
+> **Key fields:** `sla(0x1)` = SLA target met, `selected` = active path, `alive` = healthy
+
+
+### `policyname` (Policy Name)
+
+Free-text, admin-defined names — every deployment differs. Never assume specific values; ask the user for the policy name or group by `policyname` / `policyid` instead of filtering.
+
+### `direction`
+
+| Value | Notes |
+|---|---|
+| `in` | Inbound |
+| `out` | Outbound |
+
+### `utmaction` (UTM Action)
+
+| Value | Notes |
+|---|---|
+| `allow` | Allowed |
+| `block` / `blocked` | Blocked |
+| `pass` / `passthrough` | Passed through |
+| `quarantined` | Quarantined |
+| `reset` | Reset |
+
+
+## Real `srczone` / `dstzone` Values
+
+| Value | Notes |
+|---|---|
+| `LAN` | Local area network |
+| `WLAN` | Wireless LAN |
+| `WAN` | Wide area network |
+
+## Real `vdom` Values
+
+| Value | Notes |
+|---|---|
+| `root` | Default VDOM |
+
+## Real `devtype` Values
+
+| Value | Notes |
+|---|---|
+| `Server` | Server devices |
+| `Home & Office` | Home/office equipment |
+| `HM90` | Handheld mobile |
+| `Printer` | Printers |
+| `Dell Pro Precisi` | Dell Pro / Precision workstations |
+| `Network` | Network equipment |
+| `DSM` | Desktop / server / monitor |
+| `Camera` | IP cameras |
+| `Laptop` | Laptops |
+| `Mobile` | Mobile phones |
+| `Router` | Routers |
+| `NAS` | Network-attached storage |
+| `AP` | Wireless access points |
+| `IoT` | IoT devices |
+
+## Real `osname` Values
+
+| Value | Notes |
+|---|---|
+| `Windows` | Windows desktop/server |
+| `Linux` | Linux systems |
+| `DSM` | Desktop / server / monitor |
+| `macOS` | Apple macOS |
+| `iOS` | Apple iOS |
+| `Android` | Android devices |
+| `ChromeOS` | ChromeOS devices |
+| `FortiOS` | FortiOS appliances |
+
+## Real `applist` Values
+
+| Value | Notes |
+|---|---|
+| `AC-PRO` | App control profile |
+| `AC-PRO-Client` | Client app control |
+| `AC-PRO-monitor` | Monitoring profile |
+| `AC-PRO-Admin` | Admin app control |
+| `AC-PRO-Mobile` | Mobile app control |
+| `AC-PRO-Web` | Web app control |
+
+## Real `service` Values
+
+Additional service names observed beyond the well-known defaults:
+
+| Value | Notes |
+|---|---|
+| `MQTT` | Message Queuing Telemetry Transport |
+| `NTP` | Network Time Protocol |
+| `QUIC` | UDP-based quick UDP Internet Connections |
+| `BGP` | Border Gateway Protocol |
+| `OSPF` | Open Shortest Path First |
+| `SNMP` | Simple Network Management Protocol |
+| `custom-{PORT}` | Custom-named service on port `{PORT}` |
+
+> **Pattern:** Custom services follow `{name}-{PORT}` format — match with `service LIKE '%-%' AND service NOT LIKE '%DNS%' AND service NOT LIKE '%HTTP%'` to exclude well-known names.
+
+
+### Fields with No Non-N/A Values in Sample Window
+
+The following fields had zero non-N/A results when queried with exclusion filters:
+
+`appsubcategory`, `appsubcategory2`, `utmsubtype`, `devcategory`, `osversion`, `srcmacvendor`, `poluuid`, `policymode`, `policyid`, `vlanid`, `vlan`, `srcvrf`, `dstvrf`, `srcgw`, `dstgw`, `srcnatip`, `dstnatip`, `srcnatport`, `dstnatport`
+
+These fields are either always `N/A` in the current traffic logs or not populated.

@@ -453,10 +453,11 @@ ORDER BY totalnum DESC
 ```
 
 ### Pattern F: Direction-based attacker/victim (IPS)
+`direction='incoming'` means the attack flowed server→client, so the victim is `srcip`. Same logic as `${THREAT_SRCIP}` / `${THREAT_DSTIP}`.
 ```sql
 SELECT
-    CASE WHEN direction='incoming' THEN ipstr(srcip) ELSE ipstr(dstip) END AS attacker,
-    CASE WHEN direction='incoming' THEN ipstr(dstip) ELSE ipstr(srcip) END AS victim,
+    ipstr(${THREAT_SRCIP}) AS attacker,
+    ipstr(${THREAT_DSTIP}) AS victim,
     count(*) AS hits
 FROM $log-attack
 WHERE $filter
@@ -481,14 +482,16 @@ ORDER BY hits DESC
 11. **ClickHouse camelCase function names** — FAZ exposes string/regex helpers in snake_case. Use `regexp_extract`, `regexp_replace` — NOT `regexExtract`, `replaceRegexpOne`, etc. When unsure, mirror the casing of functions already documented (e.g. `regexp_replace`)
 ---
 
-## Key Enum Values
+## Canonical Enum Values (FortiOS)
+
+This is the authoritative list for closed-set fields. The "Real Values Discovered" sections in the column files are samples from one environment and time window. Use them as examples, not as complete sets.
 
 ### `action` (traffic): `accept`, `deny`, `close`, `drop`, `server-rst`, `client-rst`, `timeout`, `ip-conn`
-### `action` (UTM): `passthrough`, `blocked`, `detected`, `block`, `pass`, `reset`, `dropped`
-### `utmaction`: `allow`, `block`, `passthrough`
-### `utmevent`: `webfilter`, `app-ctrl`, `ips`, `av`, `dns`, `emailfilter`, `dlp`, `file-filter`, `ssh`, `ssl`
-### `apprisk`: `critical`, `high`, `medium`, `low`, `elevated`
-### `direction`: `incoming`, `outgoing`
+### `action` (UTM): `passthrough`, `blocked`, `detected`, `block`, `pass`, `pass_session`, `reset`, `dropped`
+### `utmaction`: `allow`, `block`, `blocked`, `pass`, `passthrough`, `quarantined`, `reset`
+### `utmevent`: `webfilter`, `app-ctrl`, `ips`, `av`, `dns`, `emailfilter`, `dlp`, `file-filter`, `ssh`, `ssl` — prefer the `${*_UTM_EVENT}` macros
+### `apprisk`: `critical`, `high`, `elevated`, `medium`, `low`
+### `direction` (UTM/IPS logs): `incoming`, `outgoing`
 ### `level`: `emergency`, `alert`, `critical`, `error`, `warning`, `notice`, `information`, `debug`
 ### `subtype` (traffic): `forward`, `local`, `multicast`, `sniffer`, `ztna`
 ### `subtype` (event): `system`, `router`, `vpn`, `user`, `endpoint`, `ha`, `compliance`, `connector`, `wad`, `wanopt`, `wireless`, `netscan`, `security-rating`

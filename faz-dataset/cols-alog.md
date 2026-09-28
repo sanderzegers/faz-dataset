@@ -36,3 +36,63 @@ FROM ###(
 GROUP BY app_group, appcat
 ORDER BY bandwidth DESC
 ```
+
+## Real Values Discovered from FAZ Instance
+
+### `action` (App-CTRL Action)
+
+Observed from FAZ app-ctrl logs:
+
+| Value | Notes |
+|---|---|
+| `pass` | Passed |
+
+### `level` (App-CTRL Level)
+
+| Value | Notes |
+|---|---|
+| `information` | Informational |
+
+### `app` (Application Name)
+
+Observed application names from FAZ app-ctrl logs:
+
+| Value | Notes |
+|---|---|
+| `HTTP.BROWSER` | Most common — web browsing |
+| `SSL` / `SSL_TLSv1.3` / `SSL_TLSv1.3.PQC` | TLS connections |
+| `QUIC` | QUIC protocol |
+| `SSH` | Secure shell |
+| `Ping` | ICMP ping |
+| `Microsoft.Authentication` | Microsoft login/auth |
+| `Microsoft.Outlook` | Outlook email |
+| `Microsoft.Portal` | Microsoft portal services |
+| `iCloud` | Apple iCloud |
+| `LastPass` | Password manager |
+| `Rapid7.Insight.Agent` | Security monitoring agent |
+
+
+### `hostname` (Destination Hostname)
+
+Observed hostnames from FAZ logs:
+
+| Value | Notes |
+|---|---|
+| `unifi-ctrl.local` / `unifi` | Wi-Fi controller |
+| `vpn-gw.local` | VPN gateway |
+| `login.cloudauth.example.com` | Cloud auth provider |
+| `outlook.office.example.com` | Email client |
+| `mask.proxy-service.example.com` / `gateway.proxy-service.example.com` | Privacy proxy |
+| `telemetry.cloudauth.example.com` | Cloud telemetry |
+| `events.events-data.example.com` | Event telemetry |
+| `mobile.events-data.example.com` | Mobile event telemetry |
+| `payments.example.com` | Payment processing |
+| `push-server.example.com` | Push notifications |
+| `api.security-monitor.example.com` | Security monitoring |
+| `updates.cloudos.example.com` | OS updates |
+| `198.51.100.143` / `192.0.2.58` | Internal IPs |
+| `banking-api.example.at` | Banking API |
+| `tools.example.at` | Internal tools |
+| `www.banking-example.at` | Banking portal |
+| `203.0.113.214` | External IP |
+| `192.0.2.91` | External IP |
