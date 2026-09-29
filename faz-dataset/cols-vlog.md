@@ -12,7 +12,6 @@ All common columns apply (see cols-common.md).
 | `filehashsrc` | Nullable(String) | Source of file hash |
 | **`filename`** | Nullable(String) | Infected file name |
 | **`filetype`** | LowCardinality(String) | File type: `MS-Office`, `PDF`, `ZIP`, etc. |
-| `filesize` | Nullable(UInt64) | File size in bytes |
 | `analyticssubmit` | LowCardinality(String) | Submitted to FortiSandbox? |
 | `analyticscksum` | Nullable(String) | Analytics checksum |
 | `fsaverdict` | LowCardinality(String) | FortiSandbox verdict |
@@ -27,6 +26,10 @@ All common columns apply (see cols-common.md).
 | `viruscat` | Nullable(String) | Virus category |
 | `itype` / `dtype` | Nullable(String) | Infection type / detection type |
 | `sharename` / `pathname` | Nullable(String) | SMB share/path (file server AV) |
+| `icbaction` / `icbverdict` / `icbseverity` / `icbconfidence` / `icbfiletype` / `icbfileid` / `icberror` | — | Inline cloud-based scan fields (seen on FAZ 7.6) |
+| `cdrcontent` / `contentencoding` | — | CDR content / content encoding (seen on FAZ 7.6) |
+| `hostname` / `url` / `referralurl` / `httpmethod` | — | Web transfer fields (seen on FAZ 7.6) |
+| `filesize` | Nullable(UInt64) | File size in bytes. **FAZ 8.0 sample data only.** Fails with "Missing columns" on 7.6 |
 
 ## Key Pattern
 

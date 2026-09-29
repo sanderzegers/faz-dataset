@@ -19,6 +19,8 @@ Dedicated app-ctrl UTM log (distinct from UTM summary fields on traffic rows). A
 | `filesize` | Nullable(UInt64) | File size (for file-type detection) |
 | `filename` | Nullable(String) | Filename if applicable |
 | `crscore` / `craction` / `crlevel` | — | Compound risk score fields |
+| `hostname` / `url` / `dstname` | — | Destination host / URL / name (seen on FAZ 7.6) |
+| `cloudgenai` / `aiuser` / `prompt` / `model` / `usecase` | — | GenAI app fields (AI service, user, prompt text, model, use case) — seen on FAZ 7.6 |
 
 ## Key Pattern
 

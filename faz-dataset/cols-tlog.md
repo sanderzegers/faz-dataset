@@ -46,8 +46,8 @@ Richest log type. Represents completed or sampled firewall sessions. All common 
 
 | Column | Type | Description |
 |---|---|---|
-| **`utmaction`** | LowCardinality(String) | UTM action: `allow`, `block`, `blocked`, `pass`, `passthrough`, `quarantined`, `reset` |
-| **`utmevent`** | LowCardinality(String) | UTM event type: `webfilter`, `app-ctrl`, `ips`, `av`, `dns`, `appfirewall` |
+| **`utmaction`** | LowCardinality(String) | UTM action. FAZ 7.6 (tested): only `allow`, `block` or empty (no UTM involved) |
+| **`utmevent`** | LowCardinality(String) | UTM event type. **Always empty on FAZ 7.6** (tested, 74M rows). Use the `count*` columns below instead |
 | `utmsubtype` | Nullable(String) | UTM sub-event |
 | **`attack`** | LowCardinality(String) | IPS attack name (summary) |
 | **`virus`** | LowCardinality(String) | AV virus name (summary) |
@@ -56,6 +56,8 @@ Richest log type. Represents completed or sampled firewall sessions. All common 
 | **`accessctrl`** | LowCardinality(String) | Cloud access control action: `upload`, `download`, `others` |
 | `countav` / `countdlp` / `countemail` / `countips` / `countweb` | Nullable(UInt32) | UTM event counts per type |
 | `countff` / `countssh` / `countssl` / `countdns` / `countwaf` | Nullable(UInt32) | UTM event counts per type |
+
+On FAZ 7.6, `countX > 0` is the working way to find traffic sessions a UTM feature touched (tested: `countweb`, `countapp`, `countips`, `countav`, `countdns`, `countssl`). For example, `WHERE $filter AND countips > 0` finds sessions with an IPS event.
 | `threats` | Array(String) | Threat names |
 | `threattyps` | Array(String) | Threat types |
 | `threatwgts` | Array(Int32) | Threat weights |
@@ -177,7 +179,7 @@ Observed values from querying `query_logs` on the live FAZ instance (2026-09-28)
 | `AV.1` / `AV.2` / `AV.3` | Antivirus events |
 | `ips.1` / `ips.2` / `ips.3` / `ips.4` | IPS events |
 
-> **Unverified:** these conflict with the canonical `utmevent` values (`webfilter`, `ips`, `av`, …) that the `${*_UTM_EVENT}` macros rely on, so they probably came from a different column. Do not filter on them; use the macros or `lower(utmevent)`.
+> **FAZ 8.0 sample, not seen on 7.6.** On 7.6, `utmevent` is empty on every row, so these can be neither confirmed nor ruled out there. Don't filter on them. Use `countX > 0` instead.
 
 ### `level` (Traffic)
 
@@ -251,11 +253,10 @@ Free-text, admin-defined names — every deployment differs. Never assume specif
 
 | Value | Notes |
 |---|---|
-| `allow` | Allowed |
-| `block` / `blocked` | Blocked |
-| `pass` / `passthrough` | Passed through |
-| `quarantined` | Quarantined |
-| `reset` | Reset |
+| `allow` | Allowed. Seen on FAZ 7.6 |
+| `block` | Blocked. Seen on FAZ 7.6 |
+| (empty) | No UTM involved. Seen on FAZ 7.6, ~75% of rows |
+| `blocked` / `pass` / `passthrough` / `quarantined` / `reset` | FAZ 8.0 sample only, not seen on 7.6 |
 
 
 ## Real `srczone` / `dstzone` Values

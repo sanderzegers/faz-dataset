@@ -2,40 +2,58 @@
 
 All common columns apply (see cols-common.md).
 
+> **Version differences.** The first table is tested live on **FAZ 7.6** (header dump). The second table comes from sample data collected on **FAZ 8.0**, and its columns fail with "Missing columns" on 7.6. On 7.6, use `action` for the action and `$log-virus` (`filehash`) for file hashes.
+
+## FAZ 7.6 columns (tested)
+
 | Column | Type | Description |
 |---|---|---|
-| **`filetype`** | LowCardinality(String) | File type / extension detected: `PDF`, `ZIP`, `EXE`, `DOCX`, `XLSX`, `PPTX`, `JPG`, `PNG`, `RAR`, `7Z`, `ISO`, `VHD`, `BAT`, `CMD`, `JS`, `VBS`, `HTA`, `REG`, `MSI`, `CAB`, `DLL`, `SYS` |
+| **`filetype`** | LowCardinality(String) | File type detected |
 | **`filename`** | Nullable(String) | Original filename — use `nullifna()` |
+| `matchfiletype` / `matchfilename` | — | File type / filename pattern the rule matched |
+| **`rulename`** | — | File filter rule that matched |
+| `filtertype` | — | Filter type |
+| **`action`** | LowCardinality(String) | File filter action |
+| `direction` | — | `incoming` / `outgoing` |
+| `level` | LowCardinality(String) | Log level: `notice`, `information`, `warning` |
+| `filesize` | Nullable(UInt64) | File size in bytes |
+| `hostname` / `url` | — | Web transfer host / URL |
+| `from` / `to` / `sender` / `recipient` / `subject` / `attachment` | — | Email transfer fields |
+| `sharename` / `pathname` | — | SMB share / path |
+
+## FAZ 8.0 columns (from sample data, not present on 7.6)
+
+| Column | Type | Description |
+|---|---|---|
 | **`fileaction`** | LowCardinality(String) | File filter action: `allow`, `block`, `quarantine` |
 | **`filehash`** | Nullable(String) | Generic file hash — use `nullifna()` |
 | **`filehashsha256`** | Nullable(String) | SHA-256 hash (64-char hex) — use `nullifna()` |
 | `filehashsha1` | Nullable(String) | SHA-1 hash (40-char hex) |
 | `filehashmd5` | Nullable(String) | MD5 hash (32-char hex) |
 | `filecategory` | Nullable(String) | File category description |
-| **`action`** | LowCardinality(String) | Overall action: `allow`, `block`, `quarantine` |
-| `level` | LowCardinality(String) | Log level: `notice`, `information`, `warning` |
-| `filesize` | Nullable(UInt64) | File size in bytes |
 | `sentbyte` | Nullable(UInt64) | Bytes sent (upload) |
 | `rcvdbyte` | Nullable(Int64) | Bytes received (download) |
 
 ## Key Pattern
 
-```sql
--- Blocked/quarantined file transfers
-SELECT filetype, fileaction, count(*) AS cnt
-FROM $log-file-filter
-WHERE $filter AND fileaction IN ('block', 'quarantine')
-GROUP BY filetype, fileaction
-/*SkipSTART*/ORDER BY cnt DESC/*SkipEND*/
+FAZ 7.6: column names tested, `action` values unverified. Check with `GROUP BY action` first. On 8.0, `fileaction` may replace `action`, but that's untested.
 
--- Large uploads by filetype
-SELECT filetype, nullifna(filename) AS fname, filesize, sentbyte
+```sql
+-- Blocked file transfers by rule and type
+SELECT rulename, filetype, count(*) AS cnt
+FROM $log-file-filter
+WHERE $filter AND action = 'block'
+GROUP BY rulename, filetype
+ORDER BY cnt DESC
+
+-- Large transfers by filetype
+SELECT filetype, nullifna(filename) AS fname, direction, filesize
 FROM $log-file-filter
 WHERE $filter AND nullifna(filename) IS NOT NULL AND filesize > 1000000
-/*SkipSTART*/ORDER BY filesize DESC/*SkipEND*/
+ORDER BY filesize DESC
 ```
 
-## Real Values Discovered from FAZ Instance
+## Real Values Discovered from FAZ Instance (FAZ 8.0)
 
 ### `fileaction` (File Filter Action)
 
@@ -94,25 +112,11 @@ Observed file types from FAZ file-filter logs:
 | `DLL` | Dynamic link library |
 | `SYS` | System file |
 
-### `filehashsha256` (SHA-256 Hash)
-
-Observed file hashes from FAZ file-filter logs:
+### `filehashsha256` / `filehashsha1` / `filehashmd5`
 
 | Pattern | Notes |
 |---|---|
-| 64-char hex | SHA-256 hash of file content, e.g. `{FLOAT}` |
-
-### `filehashsha1` (SHA-1 Hash)
-
-| Pattern | Notes |
-|---|---|
-| 40-char hex | SHA-1 hash of file content |
-
-### `filehashmd5` (MD5 Hash)
-
-| Pattern | Notes |
-|---|---|
-| 32-char hex | MD5 hash of file content |
+| 64 / 40 / 32-char hex | SHA-256 / SHA-1 / MD5 hash of file content |
 
 ### `filename` (Original Filename)
 
@@ -124,9 +128,3 @@ Observed filenames from FAZ file-filter logs:
 | Archives | `backup.zip`, `data.rar`, `install.7z` |
 | Executables | `setup.exe`, `installer.msi` |
 | Scripts | `run.bat`, `deploy.cmd`, `script.js` |
-
-### `filecategory` (File Category)
-
-| Pattern | Notes |
-|---|---|
-| Various categories | File categorization used by FortiGuard file filter — category names vary |

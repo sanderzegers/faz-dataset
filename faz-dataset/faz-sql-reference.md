@@ -98,9 +98,10 @@ ORDER BY hodex
 >
 > | Status | Macros |
 > |---|---|
-> | Confirmed working | `${REPORT_SESSION}` |
-> | Confirmed failing | `${USER}`, `${THREAT_SRCIP}`, `${THREAT_DSTIP}` |
+> | Confirmed working (FAZ 7.6) | `${REPORT_SESSION}`, `${REPORT_SESSION_WITH_LONGLIVE}`, `${BLOCKED_ACTION}` |
+> | Confirmed failing (FAZ 7.6) | `${USER}`, `${THREAT_SRCIP}`, `${THREAT_DSTIP}`, `${LEVEL2SEVID}` |
 > | Unverified | all others |
+> | Pattern so far | The logflag macros work, while the CASE/coalesce-expression macros fail. This is a hypothesis for the untested macros, not a rule |
 >
 > Unless a macro is confirmed working, write its expansion from the tables below inline.
 
@@ -137,6 +138,8 @@ UTM event macros:
 | `${APPCTRL_UTM_EVENT}` | `utmevent in ('app-ctrl')` |
 | `${ATTACK_UTM_EVENT}` | `utmevent in ('ips')` |
 | `${EMAIL_UTM_EVENT}` | `utmevent in ('general-email-log', 'spamfilter')` |
+
+> **FAZ 7.6 (tested):** `utmevent` is empty on every traffic row, so the `utmevent in (...)` macros match nothing. In traffic logs, use the counters: `countweb>0`, `countapp>0`, `countips>0`, `countav>0`, `countdns>0` or `countssl>0`. `${WEB_SESSION}` still works, because it checks `countweb>0` first. `${AV_UTM_EVENT}` depends on whether the blank is `''` or NULL (untested). Prefer `countav>0`.
 | `${EMAIL_SEND_SERVICE}` | `service IN ('smtp','SMTP','25/tcp','587/tcp','smtps','SMTPS','465/tcp')` |
 | `${EMAIL_RECV_SERVICE}` | `service IN ('pop3','POP3','110/tcp','imap','IMAP','143/tcp','imaps','IMAPS','993/tcp','pop3s','POP3S','995/tcp')` |
 
@@ -360,7 +363,7 @@ Rules: always DROP before CREATE, name as `rpt_tmptbl_N`, separate with `;`, fin
 |---|---|
 | `ipstr(col)` | IPv6 col → clean IPv4/IPv6 string — **always use for display/compare** |
 | `nullifna(col)` | Returns NULL if value is `"N/A"`, `"n/a"`, or `"null"` — use on `user`, `app` etc. |
-| `coalesce(nullifna(\`user\`), nullifna(\`unauthuser\`), ipstr(\`srcip\`))` | Canonical user identity expression |
+| `coalesce(nullifna(\`user\`), nullifna(\`unauthuser\`), ipstr(\`srcip\`))` | Canonical user identity expression. Tested on FAZ 7.6: the same user can appear in several cases (`jdoe` / `JDOE`) across auth sources, and MAC-based auth puts a MAC address in `user`. Wrapping it in `lower()` merges the case variants but lowercases every name shown. Mention the case variants and ask the user whether to add `lower()` |
 | `from_itime(col)` | Unix epoch Int32 → readable datetime string |
 | `from_dtime(col)` | Device time → readable datetime string |
 | `logid_to_int(logid)` | logid String → Int for numeric compare |
@@ -378,6 +381,7 @@ Rules: always DROP before CREATE, name as `rpt_tmptbl_N`, separate with `;`, fin
 | `split_part(col, ',', 1)` | Nth part after split — for FCT `os` column |
 | `left(col, n)` | Truncate string to n chars |
 | `JSONExtractString(col, key)` | Extract string from JSON column |
+| `arrayStringConcat(JSONExtractKeys(formatRowNoNewline('JSONEachRow', *)), ', ')` | Column names of a log type as one string. Use it `FROM (SELECT * FROM $log-x WHERE $filter LIMIT 1) t`, then UNION ALL several types. Tested and working. `*` hides ALIAS columns, so confirm a "missing" column by selecting it directly |
 | `bitAnd(a, b)` / `bitOr(a, b)` | Bitwise operations for logflag |
 | `lower(col)` | Lowercase string — use for case-insensitive compare on `utmevent`, `threat`, etc. |
 | `regexp_replace(col, pattern, replacement)` | Regex string replacement (e.g. strip OS build suffix) |
@@ -390,6 +394,8 @@ Rules: always DROP before CREATE, name as `rpt_tmptbl_N`, separate with `;`, fin
 ---
 
 ## Common Query Patterns
+
+Patterns A–F and the time series example above were all tested on FAZ 7.6. The outer query can only use columns the hcache returns, so re-aggregate the hcache's aliases (`sum(bandwidth)`), not the raw log columns. Raw columns there fail with "Missing columns".
 
 ### Pattern A: Simple Top-N
 ```sql
@@ -417,8 +423,7 @@ ORDER BY sessions DESC
 
 ### Pattern C: Bandwidth Top Users
 ```sql
-SELECT user_src,
-       sum(coalesce(sentdelta,sentbyte,0)+coalesce(rcvddelta,rcvdbyte,0)) AS bandwidth
+SELECT user_src, sum(bandwidth) AS bandwidth
 FROM ###(
     SELECT coalesce(nullifna(`user`), nullifna(`unauthuser`), ipstr(`srcip`)) AS user_src,
            sum(coalesce(sentdelta,sentbyte,0)+coalesce(rcvddelta,rcvdbyte,0)) AS bandwidth
@@ -501,8 +506,8 @@ This is the authoritative list for closed-set fields. The "Real Values Discovere
 
 ### `action` (traffic): `accept`, `deny`, `close`, `drop`, `server-rst`, `client-rst`, `timeout`, `ip-conn`
 ### `action` (UTM): `passthrough`, `blocked`, `detected`, `block`, `pass`, `pass_session`, `reset`, `dropped`
-### `utmaction`: `allow`, `block`, `blocked`, `pass`, `passthrough`, `quarantined`, `reset`
-### `utmevent`: `webfilter`, `app-ctrl`, `ips`, `av`, `dns`, `emailfilter`, `dlp`, `file-filter`, `ssh`, `ssl` — prefer the `${*_UTM_EVENT}` macros
+### `utmaction`: `allow`, `block`, `blocked`, `pass`, `passthrough`, `quarantined`, `reset`. FAZ 7.6 tested: only `allow`, `block` or empty
+### `utmevent`: `webfilter`, `app-ctrl`, `ips`, `av`, `dns`, `emailfilter`, `dlp`, `file-filter`, `ssh`, `ssl`. FAZ 7.6 tested: always empty in traffic logs. Filter on `countX>0` instead (see UTM event macros)
 ### `apprisk`: `critical`, `high`, `elevated`, `medium`, `low`
 ### `direction` (UTM/IPS logs): `incoming`, `outgoing`
 ### `level`: `emergency`, `alert`, `critical`, `error`, `warning`, `notice`, `information`, `debug`
@@ -515,7 +520,7 @@ This is the authoritative list for closed-set fields. The "Real Values Discovere
 ## Column Type Gotchas
 
 - **IP columns** (`srcip`, `dstip`): `Nullable(IPv6)` — IPv4 stored as `::ffff:192.168.1.1`. Always `ipstr()`.
-- **`sentbyte` vs `sentdelta`**: use `coalesce(sentdelta, sentbyte, 0)` — delta for long-lived, byte for closed sessions.
+- **`sentbyte` vs `sentdelta`**: use `coalesce(sentdelta, sentbyte, 0)` — delta for long-lived, byte for closed sessions. `sentbyte` is cumulative on interim logs. On FAZ 7.6, `sum(sentbyte)` alone came out ~1,600× too high.
 - **`itime` vs `dtime`**: `$filter` filters on `itime`; use `from_dtime(dtime)` for device-local time display.
 - **`logid`**: `LowCardinality(String)` — use `logid_to_int(logid)` for numeric compare.
 - **`N/A` sentinels**: `user`, `unauthuser`, `app` columns use `"N/A"` instead of NULL — always `nullifna()`.
@@ -581,9 +586,9 @@ SOC tables:      $event (alerttime)  $incident (createtime)
 Fabric hint:     /*fabricStart*/ (per-ADOM subquery) /*fabricEnd*/
 Avoid:           ebtr_agg_flat()  ebtr_value()  — NOT installed
 
-Macros:          only ${REPORT_SESSION} confirmed in custom datasets. Write others inline
+Macros:          confirmed in custom datasets: ${REPORT_SESSION}, ${REPORT_SESSION_WITH_LONGLIVE}, ${BLOCKED_ACTION}. Write others inline
 Identity macros: ${USER}  ${USER_SRC}  ${EP_SRC}  ${SAAS_USER}
-Severity macros: ${LEVEL2SEVID}  ${SEVID2SEVERITY}  ${EVENTSEV2STR}  ${FCTVULNSEV2ID}
+Severity macros: ${LEVEL2SEVID} (fails — write inline), ${SEVID2SEVERITY}  ${EVENTSEV2STR}  ${FCTVULNSEV2ID} (unverified)
 IPS direction:   inline CASE on direction='incoming' (${THREAT_*} not expanded in custom datasets)
 ```
 

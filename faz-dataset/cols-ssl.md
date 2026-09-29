@@ -1,10 +1,40 @@
-# `$log-ssl` — SSL/SSH Inspection Logs
+# `$log-ssl` — SSL/TLS Inspection Logs
 
 All common columns apply (see cols-common.md).
 
+> **Version differences.** The column names differ between FAZ versions:
+> - **FAZ 7.6 (tested live, header dump):** the first table below. `sslaction`, `sslversion`, `sslcipher`, `sslserver`, `sslprotocol`, `sslrootcacert`, `sslexpiredcert`, `sslcipherid` and `url` fail with "Missing columns".
+> - **FAZ 8.0:** the `ssl*` columns and their values come from sample data collected on 8.0. They are not yet confirmed there with a direct SELECT.
+>
+> If the version is unknown, run the column-listing query (see faz-sql-reference.md helpers) before picking a set.
+
+## FAZ 7.6 columns (tested)
+
 | Column | Type | Description |
 |---|---|---|
-| **`hostname`** | LowCardinality(String) | Server hostname (CN/SAN from certificate) |
+| **`hostname`** | LowCardinality(String) | Server hostname |
+| **`sni`** | — | TLS Server Name Indication sent by the client |
+| **`tlsver`** | — | TLS version |
+| **`cipher`** | — | Cipher suite |
+| `authalgo` / `kxproto` / `kxcurve` | — | Authentication algorithm / key exchange protocol / key exchange curve |
+| `handshake` | — | Handshake type |
+| **`action`** | LowCardinality(String) | Inspection action |
+| `eventtype` / `eventsubtype` | — | Event type / subtype (what the inspection flagged) |
+| `reason` | — | Reason for the action |
+| `mitm` | — | Whether the session was intercepted (deep inspection) |
+| `cn` / `san` | — | Certificate common name / subject alternative names |
+| `issuer` | — | Certificate issuer |
+| `sn` / `ski` | — | Certificate serial number / subject key identifier |
+| `notbefore` / `notafter` | — | Certificate validity window |
+| `keyalgo` / `keysize` | — | Certificate key algorithm / key size |
+| `certhash` / `certdesc` | — | Certificate hash / description |
+| `cat` / **`catdesc`** | — | Web category ID / description |
+| `profile` | — | SSL/SSH inspection profile |
+
+## FAZ 8.0 columns (from sample data, not present on 7.6)
+
+| Column | Type | Description |
+|---|---|---|
 | **`url`** | LowCardinality(String) | Requested URL |
 | **`sslaction`** | LowCardinality(String) | SSL inspection action: `allow`, `block`, `sslexempt` |
 | **`sslversion`** | LowCardinality(String) | TLS version: `TLSv1.0`, `TLSv1.1`, `TLSv1.2`, `TLSv1.3` |
@@ -14,11 +44,35 @@ All common columns apply (see cols-common.md).
 | **`sslrootcacert`** | Nullable(String) | Root CA certificate name |
 | **`sslexpiredcert`** | Nullable(String) | Whether certificate is expired: `Yes`, `No` |
 | **`sslcipherid`** | Nullable(UInt16) | Numeric cipher suite identifier |
-| **`catdesc`** | LowCardinality(String) | Application category description |
-| **`action`** | LowCardinality(String) | Firewall action: `allow`, `block` |
-| **`level`** | LowCardinality(String) | Severity level: `notice`, `information` |
 
 ## Key Patterns
+
+FAZ 7.6: column names tested, value literals **unverified**. Run the discovery query first and adjust the filters.
+
+```sql
+-- Discover real values
+SELECT tlsver, action, eventsubtype, mitm, count(*) AS cnt
+FROM $log-ssl
+WHERE $filter
+GROUP BY tlsver, action, eventsubtype, mitm
+ORDER BY cnt DESC
+
+-- Cipher / TLS version usage
+SELECT tlsver, cipher, count(*) AS cnt
+FROM $log-ssl
+WHERE $filter
+GROUP BY tlsver, cipher
+ORDER BY cnt DESC
+
+-- Certificates by issuer and expiry
+SELECT coalesce(nullifna(sni), hostname) AS server, cn, issuer, notafter, count(*) AS cnt
+FROM $log-ssl
+WHERE $filter AND cn IS NOT NULL
+GROUP BY server, cn, issuer, notafter
+ORDER BY cnt DESC
+```
+
+FAZ 8.0 (untested):
 
 ```sql
 -- Deprecated TLS versions (pre-TLS 1.2)
@@ -41,7 +95,7 @@ GROUP BY sslcipher
 ORDER BY cnt DESC
 ```
 
-## Real Values Discovered from FAZ Instance
+## Real Values Discovered from FAZ Instance (FAZ 8.0)
 
 ### `sslaction` (SSL Inspection Action)
 

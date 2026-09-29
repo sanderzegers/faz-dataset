@@ -25,6 +25,7 @@ All common columns apply (see cols-common.md).
 | `eventtype` | LowCardinality(String) | DLP event type |
 | `subservice` | Nullable(String) | Sub-service |
 | `sentbyte` / `rcvdbyte` | — | Bytes |
+| `infectedfilename` / `infectedfiletype` / `infectedfilesize` / `infectedfilelevel` | — | Inner file that matched (e.g. inside an archive) — seen on FAZ 7.6 |
 
 ## Real Values Discovered from FAZ Instance
 
