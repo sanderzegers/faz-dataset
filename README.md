@@ -26,7 +26,7 @@ Claude also explains the non-obvious parts. Here, that's why `direction` decides
 
 ## Tested on a live FortiAnalyzer 7.6
 
-Most FAZ SQL you find online has never been run. This skill's rules come from queries run on a real FAZ 7.6 under Reports > Datasets:
+Every rule in this skill was checked by running queries on a real FAZ 7.6 under Reports > Datasets. Anything that failed was fixed and re-tested:
 
 - **Generated queries:** top IPS victims, sessions per subnet by application, malicious websites with source IPs, and failed admin logins per device over time all ran correctly.
 - **Reference patterns:** every core pattern the skill copies from (Top-N, hcache, bandwidth, time series, IPS block rate, attacker/victim) has been run. The one broken pattern was fixed and re-tested.
