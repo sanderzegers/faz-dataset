@@ -13,12 +13,12 @@ Event logs cover many subtypes with ~200 columns. All common columns apply (see 
 | **`user`** | LowCardinality(String) | User who triggered event |
 | **`ui`** | Nullable(String) | UI method: `ssh`, `https`, `console`, `jsconsole` |
 | **`action`** | LowCardinality(String) | `login`, `logout`, `set`, `add`, `delete`, `edit`, `clear`, `tunnel-up`, `tunnel-down`, `tunnel-stats`, `perf-stats`, `ssl-login-fail`, `ipsec-login-fail`, `assoc-req`, `reassoc-req` |
-| `status` | Nullable(String) | Event status: `success`, `failed`, `down`, `DOWN`, `end`, `closed`, `traffic-count` |
+| `status` | Nullable(String) | Event status: `success`, `failed` / `failure` (both occur — match with `status IN ('failed','failure')`), `down`, `DOWN`, `end`, `closed`, `traffic-count` |
 | `result` | LowCardinality(String) | Operation result |
 | `reason` | LowCardinality(String) | Reason for event |
 | `error` | Nullable(String) | Error message |
 
-## Config Change (logid 26001 family)
+## Config Change (logid 44547, or `cfgtid > 0`)
 
 | Column | Type | Description |
 |---|---|---|
@@ -133,3 +133,375 @@ WHERE logid_to_int(logid) = 26001
 | `35011`–`35013` | HA failover / split-brain |
 | `22925` / `22933` / `22936` / `22938` | SD-WAN SLA events / link degraded / restored |
 | `43522` / `43551` | WiFi managed AP joined / left |
+
+## Real Values Discovered from FAZ Instance
+
+### `level` (Severity)
+
+Observed values from FAZ event logs:
+
+| Value | Notes |
+|---|---|
+| `information` | Most common |
+| `notice` | Routine events |
+| `warning` | Warnings |
+| `error` | Errors |
+| `critical` | Critical events |
+| `alert` | Alerts |
+
+### `subtype` (Event Subtype)
+
+Observed from FAZ event logs:
+
+| Value | Notes |
+|---|---|
+| `system` | System events |
+| `router` | Routing events |
+| `vpn` | VPN events |
+| `user` | User events |
+| `endpoint` | Endpoint events |
+| `ha` | HA events |
+| `compliance` | Compliance events |
+| `connector` | Connector events |
+| `wad` | Web/app descriptor |
+| `wanopt` | WAN optimization |
+| `wireless` | Wireless events |
+| `netscan` | Network scan |
+| `security-rating` | Security rating |
+
+### `eventtype` (Event Type)
+
+Observed from FAZ event logs:
+
+| Value | Notes |
+|---|---|
+| `AD` | Active Directory |
+| `AntiVirus` / `AV` | Antivirus |
+| `Config` | Config events |
+| `DHCP` | DHCP |
+| `DNS` | DNS |
+| `Device` | Device |
+| `Event` | Generic |
+| `FIPS` | FIPS events |
+| `Firewall` | Firewall |
+| `FortiGuard` | FortiGuard |
+| `IDS` | IDS |
+| `License` | License |
+| `Login` | Login |
+| `NAT` | NAT |
+| `NTP` | NTP |
+| `PKI` | PKI |
+| `Policy` | Policy |
+| `Proxy` | Proxy |
+| `System` | System |
+| `Threat` | Threat |
+| `Tunnel` | Tunnel |
+| `Update` | Update |
+| `User` | User |
+| `Web` | Web |
+| `WiFi` | WiFi |
+
+### `logdesc` (Log Description)
+
+Observed log descriptions from FAZ event logs:
+
+| Value | Notes |
+|---|---|
+| `SDWAN SLA information` | SLA health check status — very frequent |
+| `EMS WebSocket notification` | FortiManager EMS notifications |
+| `Negotiate IPsec phase 1` | VPN tunnel negotiation |
+| `IPsec phase 1 error` | VPN tunnel failure |
+| `DHCP server sent DHCP ACK` | DHCP lease assignment |
+| `DHCP Ack log` | DHCP acknowledgment |
+| `Wireless station sent DHCP REQUEST` | DHCP request |
+| `Wireless client IP assigned` | Client got IP |
+| `Wireless client authenticated` | 802.1X/auth success |
+| `Wireless client deauthenticated` | Client disconnected |
+| `Wireless client sent 2/4 message of 4 way handshake` | WPA2 handshake |
+| `Wireless client sent 4/4 message of 4 way handshake` | WPA2 handshake complete |
+| `AP sent 1/4 message of 4 way handshake to wireless client` | WPA2 handshake step 1 |
+| `AP sent 3/4 message of 4 way handshake to wireless client` | WPA2 handshake step 3 |
+| `Authentication request from wireless station` | Auth request |
+| `Authentication response to wireless station` | Auth response |
+| `Reassociation request from wireless station` | Roaming |
+| `Reassociation response to wireless station` | Roaming response |
+| `AP sent deauthentication frame to wireless client` | Client kicked |
+| `Rogue AP off air` | Rogue AP detected offline |
+| `Rogue AP change detected` | Rogue AP status change |
+| `FortiSandbox AV database updated` | AV DB update |
+| `Scanunit reloaded AV Database` | AV DB reload |
+| `SSL connection failed` | TLS/SSL error |
+| `System performance statistics` | CPU/memory stats |
+| `Wireless station DNS process failed due to non-existing domain` | DNS failure |
+
+### `reason` (Reason)
+
+Observed reasons from FAZ event logs:
+
+| Value | Notes |
+|---|---|
+| `ike negotiation timeout` | IPsec tunnel failed to negotiate |
+| `different CRL scope` | Certificate revocation list mismatch |
+| `Reserved 0` | WiFi event reason field |
+| `N/A` | Not applicable |
+
+
+### `vpntunnel` (VPN Tunnel)
+
+Custom VPN tunnel names observed:
+
+| Value | Notes |
+|---|---|
+| `EDGE-ISP1-{NUM}` | Edge ISP1 tunnel |
+| `SITE-ISP1-{NUM}` | Site ISP1 tunnel |
+
+> **Custom name pattern:** Tunnels follow `{SITE}-{ISP}-{NUM}` — match with `vpntunnel LIKE '%ISP1%'`.
+
+### `ap` (Access Point)
+
+Custom AP names observed:
+
+
+| Value | Notes |
+|---|---|
+| `B{N}F{N}AP{NUM}` | AP in building B{N}, floor F{N} |
+| `B{N}F{N}AP{NUM}` | AP in building B{N}, floor F{N} |
+| `B{N}F{N}AP{NUM}` | AP in building B{N}, floor F{N} |
+
+> **Custom name pattern:** APs follow `{BUILDING}{FLOOR}AP{NUM}` — match with `ap LIKE '%AP%'`.
+
+### `ssid` (SSID)
+
+Custom SSIDs observed:
+
+| Value | Notes |
+|---|---|
+| `{CORP} Mobility` | Corporate mobile network |
+| `IOT-Devices` | IoT devices |
+| `GUEST-Network` | Guest network |
+| `RoomCast-{NUM}` | Conference room AP |
+| `RoomCast-{NUM}` | Conference room AP |
+
+### `slahealthcheck` (SLA Healthcheck)
+
+| Value | Notes |
+|---|---|
+| `Ping Google` | ICMP ping to Google DNS |
+| `HUB` | HUB-based health check |
+
+### `slamap` (SLA Map)
+
+| Value | Notes |
+|---|---|
+| `0x1` | SLA map value |
+
+### `latency` (Latency)
+
+| Value | Notes |
+|---|---|
+| `{FLOAT}` | Latency in milliseconds |
+
+### `jitter` (Jitter)
+
+| Value | Notes |
+|---|---|
+| `{FLOAT}` | Jitter in milliseconds |
+
+### `packetloss` (Packet Loss)
+
+| Value | Notes |
+|---|---|
+| `{FLOAT}` | Packet loss percentage |
+
+### `inbandwidthavailable` (Inbound Bandwidth)
+
+| Value | Notes |
+|---|---|
+| `{VALUE}Gbps` | Available inbound bandwidth |
+| `{VALUE}Mbps` | Available inbound bandwidth |
+
+### `outbandwidthavailable` (Outbound Bandwidth)
+
+| Value | Notes |
+|---|---|
+| `{VALUE}Gbps` | Available outbound bandwidth |
+| `{VALUE}Mbps` | Available outbound bandwidth |
+
+### `ha_role` (HA Role)
+
+| Value | Notes |
+|---|---|
+| `N/A` | No HA |
+| `primary` | Primary HA node |
+| `secondary` | Secondary HA node |
+
+### `ha_group` (HA Group)
+
+| Value | Notes |
+|---|---|
+| `N/A` | No HA |
+| `{GROUP-NAME}` | HA group name |
+
+### `vcluster` (Virtual Cluster)
+
+| Value | Notes |
+|---|---|
+| `N/A` | No cluster |
+| `{CLUSTER-NAME}` | Cluster name |
+
+### `devid` (Device ID)
+
+| Value | Notes |
+|---|---|
+| `FGT{SERIAL}` | FortiGate serial number |
+
+### `interface` (Interface)
+
+| Value | Notes |
+|---|---|
+| `wan1` / `wan2` | WAN interfaces |
+| `H1_ISP1_1` / `H1_ISP1_1_0` / `H1_ISP1_1_1` | ISP1 tunnel interfaces |
+| `H1_ISP2_1` | ISP2 tunnel interface |
+| `Meadow_root` / `Falcon_root` | ISP interfaces |
+| `lan1` / `lan2` / `lan3` / `lan4` | LAN interfaces |
+
+### `cpu` / `mem` / `disk` (System Resources)
+
+| Value | Notes |
+|---|---|
+| `{PERCENT}` | CPU/memory/disk usage percentage |
+| `0` | Not used in this log entry |
+
+### `totalsession` (Total Sessions)
+
+| Value | Notes |
+|---|---|
+| `{NUM}` | Current total sessions |
+
+### `setuprate` (Setup Rate)
+
+| Value | Notes |
+|---|---|
+| `{NUM}` | New sessions per second |
+
+### `bssid` (BSSID)
+
+| Value | Notes |
+|---|---|
+| `XX:XX:XX:XX:XX:XX` | WiFi BSSID |
+
+### `channel` (WiFi Channel)
+
+| Value | Notes |
+|---|---|
+| `{NUM}` | WiFi channel number |
+
+### `stamac` (Station MAC)
+
+| Value | Notes |
+|---|---|
+| `N/A` | No station MAC |
+
+### `devid` (Device ID)
+
+Observed device IDs from FAZ event logs:
+
+| Value | Notes |
+|---|---|
+| `FGT70GTK26048654` | FortiGate 70G serial |
+| `FG120GTK25026557` | FortiGate 120G serial |
+| `FG120GTK26007050` | FortiGate 120G serial |
+| `FG120GTK26012083` | FortiGate 120G serial |
+| `FG120GTK25027087` | FortiGate 120G serial |
+
+> **Pattern:** `FG{MODEL}{YEAR}{SERIAL}` — match with `devid LIKE '%GTK%'`.
+
+### `interface` (Interface)
+
+Observed interface names from FAZ event logs:
+
+| Value | Notes |
+|---|---|
+| `Guests` | Guest WiFi SSID/interface |
+| `VLAN{NUM}` | VLAN-tagged interface |
+
+> **Pattern:** WiFi interfaces often match SSID names; VLAN interfaces use `VLAN{NUM}` format.
+
+### `channel` (WiFi Channel)
+
+Observed channels from FAZ event logs:
+
+| Value | Notes |
+|---|---|
+| `1` | 2.4 GHz channel 1 |
+| `52` | 5 GHz channel 52 |
+
+> **Pattern:** Channels vary by band — `1`, `6`, `11` for 2.4 GHz; `36`–`165` for 5 GHz.
+
+### `stamac` (Station MAC)
+
+Observed station MACs from FAZ event logs:
+
+| Pattern | Notes |
+|---|---|
+| `XX:XX:XX:XX:XX:XX` | Station MAC address |
+
+### `bssid` (BSSID)
+
+Observed BSSIDs from FAZ event logs:
+
+| Pattern | Notes |
+|---|---|
+| `XX:XX:XX:XX:XX:XX` | Access point MAC |
+
+### `status` (Event Status)
+
+Observed status values from FAZ event logs:
+
+| Value | Notes |
+|---|---|
+| `success` | Successful event |
+| `failure` | Failed event |
+| `negotiate_error` | VPN negotiation error |
+| `clash` | IP/MAC conflict |
+
+### `result` (Operation Result)
+
+Observed result values from FAZ event logs:
+
+| Value | Notes |
+|---|---|
+| `DONE` | Operation completed |
+| `OK` | Operation successful |
+| `XAUTH authentication successful` | XAuth success |
+
+### `ui` (UI Method)
+
+Observed UI methods from FAZ event logs:
+
+| Value | Notes |
+|---|---|
+| `ssh` | SSH interface |
+| `https` | Web UI |
+| `console` | Console |
+| `jsconsole` | JavaScript console |
+| `ssl-vpn` | SSL VPN |
+
+### `slahealthcheck` (SLA Healthcheck)
+
+Observed health check names from FAZ event logs:
+
+| Value | Notes |
+|---|---|
+| `Ping 8.8.8.8` | Google DNS ping |
+| `Ping 8.8.4.4` | Google DNS ping |
+| `Ping 1.1.1.1` | Cloudflare DNS ping |
+
+### `ha_role` (HA Role)
+
+Observed HA roles from FAZ event logs:
+
+| Value | Notes |
+|---|---|
+| `primary` | Primary node |
+| `secondary` | Secondary node |

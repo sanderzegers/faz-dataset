@@ -44,6 +44,7 @@ GUI Dataset SQL
 | `$last3day_period $filter` | Rolling 3-day lookback (prepend before `$filter`) |
 | `$pre_period` | Period before current window — for before/after comparisons |
 | `$filter-drilldown` | Drilldown filter on outer query only (built-in datasets only) |
+| `$filter-exclude-var` | Seen in built-in datasets inside hcache, paired with `$filter-drilldown` on the outer query. Use `$filter` in custom datasets |
 | `$cust_time_filter(col)` | Time filter for non-log tables (`$event`, `$incident`) |
 | `$cust_time_filter(col, TODAY)` | Same with preset: `TODAY`, `YESTERDAY`, `LAST_N_PERIOD,1` |
 | `$adom_oid` | Integer ADOM OID — rarely needed directly |
@@ -93,6 +94,17 @@ ORDER BY hodex
 
 ## ${MACRO} Expansions
 
+> **Custom datasets:** not every `${...}` macro expands in GUI datasets. An unexpanded macro fails with a syntax error at `$`. Tested status:
+>
+> | Status | Macros |
+> |---|---|
+> | Confirmed working (FAZ 7.6) | `${REPORT_SESSION}`, `${REPORT_SESSION_WITH_LONGLIVE}`, `${BLOCKED_ACTION}` |
+> | Confirmed failing (FAZ 7.6) | `${USER}`, `${THREAT_SRCIP}`, `${THREAT_DSTIP}`, `${LEVEL2SEVID}` |
+> | Unverified | all others |
+> | Pattern so far | The logflag macros work, while the CASE/coalesce-expression macros fail. This is a hypothesis for the untested macros, not a rule |
+>
+> Unless a macro is confirmed working, write its expansion from the tables below inline.
+
 logflag bit constants (expand to numeric strings):
 
 | Macro | Value |
@@ -126,6 +138,8 @@ UTM event macros:
 | `${APPCTRL_UTM_EVENT}` | `utmevent in ('app-ctrl')` |
 | `${ATTACK_UTM_EVENT}` | `utmevent in ('ips')` |
 | `${EMAIL_UTM_EVENT}` | `utmevent in ('general-email-log', 'spamfilter')` |
+
+> **FAZ 7.6 (tested):** `utmevent` is empty on every traffic row, so the `utmevent in (...)` macros match nothing. In traffic logs, use the counters: `countweb>0`, `countapp>0`, `countips>0`, `countav>0`, `countdns>0` or `countssl>0`. `${WEB_SESSION}` still works, because it checks `countweb>0` first. `${AV_UTM_EVENT}` depends on whether the blank is `''` or NULL (untested). Prefer `countav>0`.
 | `${EMAIL_SEND_SERVICE}` | `service IN ('smtp','SMTP','25/tcp','587/tcp','smtps','SMTPS','465/tcp')` |
 | `${EMAIL_RECV_SERVICE}` | `service IN ('pop3','POP3','110/tcp','imap','IMAP','143/tcp','imaps','IMAPS','993/tcp','pop3s','POP3S','995/tcp')` |
 
@@ -266,7 +280,7 @@ LEFT JOIN $ADOM_ENDPOINT ep ON (CASE WHEN epid < 1024 THEN NULL ELSE epid END) =
 LEFT JOIN $ADOM_ENDUSER eu  ON (CASE WHEN euid < 1024 THEN NULL ELSE euid END) = eu.euid
 ```
 
-**`devtable_ext`** — resolve `dvid` to device name:
+**`devtable_ext`** — resolve `dvid` to device name. This is usually unnecessary, because `$log-*` rows already carry `devname`, `devid` and `vd`:
 ```sql
 LEFT JOIN devtable_ext d ON e.dvid = d.dvid
 -- columns: dvid, devname, devtype, devid
@@ -349,12 +363,14 @@ Rules: always DROP before CREATE, name as `rpt_tmptbl_N`, separate with `;`, fin
 |---|---|
 | `ipstr(col)` | IPv6 col → clean IPv4/IPv6 string — **always use for display/compare** |
 | `nullifna(col)` | Returns NULL if value is `"N/A"`, `"n/a"`, or `"null"` — use on `user`, `app` etc. |
-| `coalesce(nullifna(\`user\`), nullifna(\`unauthuser\`), ipstr(\`srcip\`))` | Canonical user identity expression |
+| `coalesce(nullifna(\`user\`), nullifna(\`unauthuser\`), ipstr(\`srcip\`))` | Canonical user identity expression. Tested on FAZ 7.6: the same user can appear in several cases (`jdoe` / `JDOE`) across auth sources, and MAC-based auth puts a MAC address in `user`. Wrapping it in `lower()` merges the case variants but lowercases every name shown. Mention the case variants and ask the user whether to add `lower()` |
 | `from_itime(col)` | Unix epoch Int32 → readable datetime string |
 | `from_dtime(col)` | Device time → readable datetime string |
 | `logid_to_int(logid)` | logid String → Int for numeric compare |
 | `root_domain(hostname)` | `mail.google.com` → `google.com` |
-| `app_group_name(app)` | App name → application group |
+| `app_group_name(app)` | App to a service-style group (`DNS`, `HTTP`, `LDAP`, `SNMP`, `TCP_High_Ports`), falling back to `proto/port` such as `tcp/27001` |
+| `ip_subnet(col)` | IP to its **fixed /24** as a string, e.g. `10.149.10.0/24`. It doesn't know the real configured subnet size |
+| `isIPAddressInRange(ipstr(col), 'cidr')` | Tests whether an IP is in a CIDR range. Use it to map real subnets in a `CASE` (falling back to `ip_subnet()`) or to filter a range. Tested and working in FAZ |
 | `virusid_to_str(virusid)` | Numeric virus ID → string name |
 | `incid_to_str(incid)` | Numeric incident ID → `"INC-00042"` |
 | `get_devtype(n)` | Numeric device type → string |
@@ -365,6 +381,7 @@ Rules: always DROP before CREATE, name as `rpt_tmptbl_N`, separate with `;`, fin
 | `split_part(col, ',', 1)` | Nth part after split — for FCT `os` column |
 | `left(col, n)` | Truncate string to n chars |
 | `JSONExtractString(col, key)` | Extract string from JSON column |
+| `arrayStringConcat(JSONExtractKeys(formatRowNoNewline('JSONEachRow', *)), ', ')` | Column names of a log type as one string. Use it `FROM (SELECT * FROM $log-x WHERE $filter LIMIT 1) t`, then UNION ALL several types. Tested and working. `*` hides ALIAS columns, so confirm a "missing" column by selecting it directly |
 | `bitAnd(a, b)` / `bitOr(a, b)` | Bitwise operations for logflag |
 | `lower(col)` | Lowercase string — use for case-insensitive compare on `utmevent`, `threat`, etc. |
 | `regexp_replace(col, pattern, replacement)` | Regex string replacement (e.g. strip OS build suffix) |
@@ -378,11 +395,13 @@ Rules: always DROP before CREATE, name as `rpt_tmptbl_N`, separate with `;`, fin
 
 ## Common Query Patterns
 
+Patterns A–F and the time series example above were all tested on FAZ 7.6. The outer query can only use columns the hcache returns, so re-aggregate the hcache's aliases (`sum(bandwidth)`), not the raw log columns. Raw columns there fail with "Missing columns".
+
 ### Pattern A: Simple Top-N
 ```sql
 SELECT catdesc, count(*) AS hits
 FROM $log-webfilter
-WHERE $filter AND utmaction IN ('block','blocked','blk') AND catdesc IS NOT NULL
+WHERE $filter AND action = 'blocked' AND catdesc IS NOT NULL
 GROUP BY catdesc
 ORDER BY hits DESC
 ```
@@ -404,8 +423,7 @@ ORDER BY sessions DESC
 
 ### Pattern C: Bandwidth Top Users
 ```sql
-SELECT user_src,
-       sum(coalesce(sentdelta,sentbyte,0)+coalesce(rcvddelta,rcvdbyte,0)) AS bandwidth
+SELECT user_src, sum(bandwidth) AS bandwidth
 FROM ###(
     SELECT coalesce(nullifna(`user`), nullifna(`unauthuser`), ipstr(`srcip`)) AS user_src,
            sum(coalesce(sentdelta,sentbyte,0)+coalesce(rcvddelta,rcvdbyte,0)) AS bandwidth
@@ -453,10 +471,11 @@ ORDER BY totalnum DESC
 ```
 
 ### Pattern F: Direction-based attacker/victim (IPS)
+`direction='incoming'` means the attack flowed server→client, so the victim is `srcip`. Write the CASE inline, because `${THREAT_*}` does not expand in custom datasets.
 ```sql
 SELECT
-    CASE WHEN direction='incoming' THEN ipstr(srcip) ELSE ipstr(dstip) END AS attacker,
-    CASE WHEN direction='incoming' THEN ipstr(dstip) ELSE ipstr(srcip) END AS victim,
+    ipstr(CASE WHEN direction='incoming' THEN dstip ELSE srcip END) AS attacker,
+    ipstr(CASE WHEN direction='incoming' THEN srcip ELSE dstip END) AS victim,
     count(*) AS hits
 FROM $log-attack
 WHERE $filter
@@ -481,14 +500,16 @@ ORDER BY hits DESC
 11. **ClickHouse camelCase function names** — FAZ exposes string/regex helpers in snake_case. Use `regexp_extract`, `regexp_replace` — NOT `regexExtract`, `replaceRegexpOne`, etc. When unsure, mirror the casing of functions already documented (e.g. `regexp_replace`)
 ---
 
-## Key Enum Values
+## Canonical Enum Values (FortiOS)
+
+This is the authoritative list for closed-set fields. The "Real Values Discovered" sections in the column files are samples from one environment and time window. Use them as examples, not as complete sets.
 
 ### `action` (traffic): `accept`, `deny`, `close`, `drop`, `server-rst`, `client-rst`, `timeout`, `ip-conn`
-### `action` (UTM): `passthrough`, `blocked`, `detected`, `block`, `pass`, `reset`, `dropped`
-### `utmaction`: `allow`, `block`, `passthrough`
-### `utmevent`: `webfilter`, `app-ctrl`, `ips`, `av`, `dns`, `emailfilter`, `dlp`, `file-filter`, `ssh`, `ssl`
-### `apprisk`: `critical`, `high`, `medium`, `low`, `elevated`
-### `direction`: `incoming`, `outgoing`
+### `action` (UTM): `passthrough`, `blocked`, `detected`, `block`, `pass`, `pass_session`, `reset`, `dropped`
+### `utmaction`: `allow`, `block`, `blocked`, `pass`, `passthrough`, `quarantined`, `reset`. FAZ 7.6 tested: only `allow`, `block` or empty
+### `utmevent`: `webfilter`, `app-ctrl`, `ips`, `av`, `dns`, `emailfilter`, `dlp`, `file-filter`, `ssh`, `ssl`. FAZ 7.6 tested: always empty in traffic logs. Filter on `countX>0` instead (see UTM event macros)
+### `apprisk`: `critical`, `high`, `elevated`, `medium`, `low`
+### `direction` (UTM/IPS logs): `incoming`, `outgoing`
 ### `level`: `emergency`, `alert`, `critical`, `error`, `warning`, `notice`, `information`, `debug`
 ### `subtype` (traffic): `forward`, `local`, `multicast`, `sniffer`, `ztna`
 ### `subtype` (event): `system`, `router`, `vpn`, `user`, `endpoint`, `ha`, `compliance`, `connector`, `wad`, `wanopt`, `wireless`, `netscan`, `security-rating`
@@ -499,7 +520,7 @@ ORDER BY hits DESC
 ## Column Type Gotchas
 
 - **IP columns** (`srcip`, `dstip`): `Nullable(IPv6)` — IPv4 stored as `::ffff:192.168.1.1`. Always `ipstr()`.
-- **`sentbyte` vs `sentdelta`**: use `coalesce(sentdelta, sentbyte, 0)` — delta for long-lived, byte for closed sessions.
+- **`sentbyte` vs `sentdelta`**: use `coalesce(sentdelta, sentbyte, 0)` — delta for long-lived, byte for closed sessions. `sentbyte` is cumulative on interim logs. On FAZ 7.6, `sum(sentbyte)` alone came out ~1,600× too high.
 - **`itime` vs `dtime`**: `$filter` filters on `itime`; use `from_dtime(dtime)` for device-local time display.
 - **`logid`**: `LowCardinality(String)` — use `logid_to_int(logid)` for numeric compare.
 - **`N/A` sentinels**: `user`, `unauthuser`, `app` columns use `"N/A"` instead of NULL — always `nullifna()`.
@@ -565,9 +586,10 @@ SOC tables:      $event (alerttime)  $incident (createtime)
 Fabric hint:     /*fabricStart*/ (per-ADOM subquery) /*fabricEnd*/
 Avoid:           ebtr_agg_flat()  ebtr_value()  — NOT installed
 
+Macros:          confirmed in custom datasets: ${REPORT_SESSION}, ${REPORT_SESSION_WITH_LONGLIVE}, ${BLOCKED_ACTION}. Write others inline
 Identity macros: ${USER}  ${USER_SRC}  ${EP_SRC}  ${SAAS_USER}
-Severity macros: ${LEVEL2SEVID}  ${SEVID2SEVERITY}  ${EVENTSEV2STR}  ${FCTVULNSEV2ID}
-IPS direction:   ${THREAT_SRCIP}  ${THREAT_DSTIP}
+Severity macros: ${LEVEL2SEVID} (fails — write inline), ${SEVID2SEVERITY}  ${EVENTSEV2STR}  ${FCTVULNSEV2ID} (unverified)
+IPS direction:   inline CASE on direction='incoming' (${THREAT_*} not expanded in custom datasets)
 ```
 
 ---
@@ -593,6 +615,24 @@ The FAZ SQL dialect (ANTLR4 grammar) supports:
 ---
 
 ## Real Query Examples (from predefined datasets)
+
+### Top IPS victims (built-in)
+```sql
+SELECT victim, sum(totalnum) AS totalnum
+FROM ###(
+    SELECT (CASE WHEN direction='incoming' THEN ipstr(dstip) ELSE ipstr(srcip) END) AS source,
+           (CASE WHEN direction='incoming' THEN ipstr(srcip) ELSE ipstr(dstip) END) AS victim,
+           count(*) AS totalnum
+    FROM $log
+    WHERE $filter-exclude-var
+    GROUP BY source, victim
+    ORDER BY totalnum DESC
+)### t
+WHERE $filter-drilldown AND victim IS NOT NULL
+GROUP BY victim
+ORDER BY sum(totalnum) DESC
+```
+Custom-dataset equivalent, tested and working: use `$log-attack` and `WHERE $filter`, and drop `$filter-drilldown`.
 
 ### Window function — SD-WAN device down time tracking
 ```sql

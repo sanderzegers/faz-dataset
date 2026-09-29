@@ -23,6 +23,20 @@ For column names, read **only the files matching the log types needed**:
 | DNS Filter | [cols-dlog.md](cols-dlog.md) |
 | DLP | [cols-dlp.md](cols-dlp.md) |
 | Email Filter | [cols-emailfilter.md](cols-emailfilter.md) |
+| SSL/TLS | [cols-ssl.md](cols-ssl.md) |
+| SSH | [cols-ssh.md](cols-ssh.md) |
+| File Filter | [cols-file-filter.md](cols-file-filter.md) |
+| WAF | [cols-waf.md](cols-waf.md) |
+| Network Scan | [cols-netscan.md](cols-netscan.md) |
+| Security | [cols-security.md](cols-security.md) |
+| GTP | [cols-gtp.md](cols-gtp.md) |
+| Content Security (FTP/SMTP/IMAP/POP3) | [cols-content.md](cols-content.md) |
+| VoIP | [cols-voip.md](cols-voip.md) |
+| Protocol | [cols-protocol.md](cols-protocol.md) |
+| SIEM Forwarder | [cols-siem.md](cols-siem.md) |
+| Anomaly | [cols-anomaly.md](cols-anomaly.md) |
+| ICAP | [cols-icap.md](cols-icap.md) |
+| Virtual Patch | [cols-virtual-patch.md](cols-virtual-patch.md) |
 | FortiClient Event | [cols-fct-event.md](cols-fct-event.md) |
 | FortiClient Traffic | Same as cols-tlog.md (FCT shares tlog columns) |
 | ADOM reference tables (`$ADOM_ENDPOINT`, `$ADOM_ENDUSER`, `devtable_ext`, etc.) | [cols-adom-tables.md](cols-adom-tables.md) |
@@ -31,11 +45,21 @@ For column names, read **only the files matching the log types needed**:
 
 Do NOT read column files that are not needed for the current query.
 
+## Enum values
+
+Take enum values for closed-set fields (`action`, `level`, `utmaction`, `utmevent`, `apprisk`, `direction`, `subtype`) from the **Canonical Enum Values** section of faz-sql-reference.md. Never guess them.
+
+Each column file ends with a "Real Values Discovered from FAZ Instance" section. Those values were seen on one lab instance over a short window, so they are **examples, not complete sets**:
+- Use them to learn a field's format and casing, e.g. `appcat` is `Web.Client`, not `web-client`.
+- Do not build `IN (...)` whitelists from them. That silently drops values the sample never saw.
+- For open-ended, deployment-specific fields (`devtype`, `osname`, `service`, `policyname`, `applist`, `vdom`, zones, interface/tunnel names), group by the field or ask the user for the value instead of hardcoding one.
+- For fields marked "No rows in last hour" or schema-only, tell the user the values are unverified.
+
 ## Your job
 
 When a user asks for help with a dataset query:
 
-1. Ask which **log type** the dataset targets if not specified (traffic, event, web, app-ctrl, AV, IPS, DNS, DLP, email, FCT)
+1. Infer the **log type** from the request using the table above (e.g. "blocked websites" → webfilter, "IPS attackers" → attack, "admin logins" → event). Ask only when it's genuinely ambiguous.
 2. Read faz-sql-reference.md + the matching column file(s), then write the query
 3. Explain any non-obvious clauses
 
@@ -43,6 +67,9 @@ When a user asks for help with a dataset query:
 
 - Always use `$log-{type}` as the table in FROM — never hardcode `sp1_FGT_tlog` etc.
 - Always include `$filter` in WHERE — it provides mandatory time/device scope
+- Write `${...}` macro logic inline unless the macro is confirmed working (see the macro status table in faz-sql-reference.md). Many, e.g. `${USER}` and `${THREAT_*}`, don't expand in custom datasets
+- Use `devname` directly for device names. FAZ joins it onto every log row, so no `devtable_ext` join is needed
+- If FAZ reports "Missing columns", the column doesn't exist for that log type. Suggest `SELECT * FROM $log-x WHERE $filter LIMIT 1` to list the real columns
 - Use `coalesce(sentdelta,sentbyte,0)` / `coalesce(rcvddelta,rcvdbyte,0)` for bytes
 - Use `bitAnd(logflag,bitOr(1,32))>0` for bandwidth (includes long-lived sessions)
 - Use `bitAnd(logflag,1)>0` for session counts
@@ -53,7 +80,7 @@ When a user asks for help with a dataset query:
 - Use `coalesce(nullifna(\`user\`), nullifna(\`unauthuser\`), ipstr(\`srcip\`))` for user identity
 - Use `logid_to_int(logid)` for numeric logid comparisons (except fct-event where logid is UInt64)
 - `epid`/`euid` < 1024 are system IDs — null them out before endpoint/user joins
-- LIMIT is usually required
+- Omit LIMIT by default — the chart's Top-N setting controls row count; add LIMIT only if the user asks or the dataset feeds a table with no Top-N
 
 ## Output format
 

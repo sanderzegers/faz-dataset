@@ -44,3 +44,78 @@ FROM ###(
 GROUP BY attack
 ORDER BY totalnum DESC
 ```
+
+## Real Values Discovered from FAZ Instance
+
+### `action` (Attack Action)
+
+> **Suspect sample:** these match traffic-log actions, not IPS actions, and the discovery query probably hit the wrong table. Use the schema values above (`detected`, `blocked`, `dropped`, `reset`, `pass_session`) for filters and block-rate logic.
+
+| Value | Notes |
+|---|---|
+| `accept` | Accepted |
+| `block` | Blocked |
+| `close` | Closed |
+| `drop` | Dropped |
+| `pass` | Passed |
+
+### `severity` (Severity)
+
+Observed from FAZ attack logs:
+
+| Value | Notes |
+|---|---|
+| `critical` | Critical severity |
+| `high` | High severity |
+| `medium` | Medium severity |
+| `low` | Low severity |
+| `informational` | Informational — the schema lists `info`; match both with `severity IN ('info','informational')` |
+
+### `level` (Attack Level)
+
+| Value | Notes |
+|---|---|
+| `information` | Informational |
+
+### Additional `action` Values (from attack logs)
+
+Observed from FAZ attack logs:
+
+| Value | Notes |
+|---|---|
+| `dropped` | Packet dropped |
+| `detected` | Attack detected but not blocked |
+
+### `threat` (Threat Name)
+
+Observed threat names from FAZ attack logs:
+
+| Value | Notes |
+|---|---|
+| `udp_flood` | UDP flood attack |
+
+### `attacktype` / `threattype`
+
+| Value | Notes |
+|---|---|
+| `ips` | Intrusion Prevention System |
+
+### `attack` (Attack Name) — Additional Values
+
+Observed from FAZ attack logs:
+
+| Value | Notes |
+|---|---|
+| `VACRON.CCTV.Board.CGI.cmd.Parameter.Command.Execution` | CCTV board CGI exploit |
+| `ZGrab.Scanner` | ZGrab network scanner |
+| `udp_flood` | UDP flood (most common) |
+
+### `ref` (Reference URL)
+
+Observed reference URLs from FAZ attack logs:
+
+| Pattern | Notes |
+|---|---|
+| `http://www.fortinet.com/ids/VID{NUM}` | Fortinet IDS database reference |
+| `https://fortiguard.fortinet.com/encyclopedia/ips/{NUM}` | FortiGuard IPS encyclopedia |
+

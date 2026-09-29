@@ -53,3 +53,34 @@ WHERE $filter AND nullifna(os) IS NOT NULL
 GROUP BY os_family
 ORDER BY cnt DESC
 ```
+
+## Endpoint Status Columns (moved from cols-elog.md, unverified against schema)
+
+| Column | Type | Description |
+|---|---|---|
+| `epmgmtst` | LowCardinality(String) | Endpoint management status |
+| `eponlinest` | LowCardinality(String) | Endpoint online status |
+| `epplace` | LowCardinality(String) | Endpoint location |
+
+### `epmgmtst` (Endpoint Management Status)
+
+| Value | Notes |
+|---|---|
+| `blocked` | Endpoint blocked |
+| `quarantined` | Endpoint quarantined |
+| `unblocked` | Endpoint unblocked |
+| `unquarantined` | Endpoint unquarantined |
+
+### `eponlinest` (Endpoint Online Status)
+
+| Value | Notes |
+|---|---|
+| `regonline` | Registered and online |
+| `regoffline` | Registered but offline |
+
+### `epplace` (Endpoint Location)
+
+| Value | Notes |
+|---|---|
+| `onnet` | On network |
+| `offnet` | Off network |

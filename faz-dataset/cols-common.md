@@ -1,6 +1,27 @@
-# Common Columns — Present on ALL Log Types
+# Common Columns
 
-These columns exist on every `$log-*` source.
+Columns shared across `$log-*` sources, checked against real schemas for traffic, attack, webfilter and event logs. **Not every column is on every log type.** These are known gaps:
+
+| Log type | Missing from its schema |
+|---|---|
+| `$log-traffic` | `direction`, `profile` |
+| `$log-attack`, `$log-webfilter` | `dstname` |
+| `$log-event` | `srcintf`, `dstintf`, `srczone`, `dstzone`, `sessionid`, `sfsid`, `policytype`, `policymode`, `poluuid`, `dstname` |
+
+If unsure, `SELECT * FROM $log-x WHERE $filter LIMIT 1` lists a log type's real columns.
+
+## Device Columns (joined automatically)
+
+FAZ joins these onto every `$log-*` row, so **no `devtable_ext` join is needed** for device names:
+
+| Column | Description |
+|---|---|
+| **`devname`** | FortiGate hostname |
+| **`devid`** | FortiGate serial number |
+| **`vd`** | VDOM name |
+| `devgrps` | Device groups (array) |
+| `csf` | Security Fabric name |
+| `_adomoid` | ADOM OID |
 
 | Column | Type | Description |
 |---|---|---|
@@ -43,6 +64,120 @@ These columns exist on every `$log-*` source.
 | `assoc-req` / `reassoc-req` | WiFi association request |
 | `login` / `logout` | Admin/user authentication events |
 | `set` / `add` / `delete` / `edit` / `clear` | Config change operations |
+
+## Real Values Discovered from FAZ Instance
+
+### `level` (Severity)
+
+Observed across all log types:
+
+| Value | Most Common In |
+|---|---|
+| `information` | traffic, event |
+| `notice` | dns |
+| `warning` | traffic, attack |
+| `critical` | event |
+
+### `subtype` (Log Subtype)
+
+Observed event subtypes:
+
+| Value | Notes |
+|---|---|
+| `system` | System events |
+| `config` | Config changes |
+| `dhcp` | DHCP events |
+| `device` | Device events |
+| `event` | Generic events |
+| `firewall` | Firewall events |
+| `login` | Login events |
+| `update` | Update events |
+| `user` | User events |
+
+### `eventtype` (Event Type)
+
+Observed across event logs:
+
+| Value | Notes |
+|---|---|
+| `AD` | Active Directory |
+| `AntiVirus` / `AV` | Antivirus |
+| `Config` | Config events |
+| `DHCP` | DHCP |
+| `DNS` | DNS |
+| `Device` | Device |
+| `Event` | Generic |
+| `Firewall` | Firewall |
+| `FortiGuard` | FortiGuard |
+| `IDS` | IDS |
+| `License` | License |
+| `Login` | Login |
+| `NAT` | NAT |
+| `NTP` | NTP |
+| `PKI` | PKI |
+| `Policy` | Policy |
+| `Proxy` | Proxy |
+| `System` | System |
+| `Threat` | Threat |
+| `Tunnel` | Tunnel |
+| `Update` | Update |
+| `User` | User |
+| `Web` | Web |
+| `WiFi` | WiFi |
+
+
+### `policytype` (Policy Type)
+
+| Value | Notes |
+|---|---|
+| `policy` | Standard firewall policy |
+| `local-in-policy` | Local-in policy (FAZ appliance-facing) |
+
+### `policymode` (Policy Mode)
+
+| Value | Notes |
+|---|---|
+| `flow` | Flow-based inspection |
+| `proxy` | Proxy-based inspection |
+
+### `vlanid` (VLAN ID)
+
+| Value | Notes |
+|---|---|
+| `{NUM}` | VLAN identifier |
+
+### `srcvrf` / `dstvrf` (VRF)
+
+| Value | Notes |
+|---|---|
+| `N/A` | No VRF (most common) |
+| `{VRF-NAME}` | VRF name |
+
+### `srcgw` / `dstgw` (Gateway)
+
+| Value | Notes |
+|---|---|
+| `203.0.113.77` | Gateway IP |
+| `N/A` | No gateway |
+
+### `srcnatip` / `dstnatip` (NAT IP)
+
+| Value | Notes |
+|---|---|
+| `198.51.100.143` | NAT translated IP |
+| `N/A` | No NAT |
+
+### `srcnatport` / `dstnatport` (NAT Port)
+
+| Value | Notes |
+|---|---|
+| `{PORT}` | NAT translated port |
+| `N/A` | No NAT port |
+
+## Common Column Details
+
+| Column | Type | Description |
+|---|---|---|
 | **`srcip`** | Nullable(IPv6) | Source IP — always use `ipstr()` for display |
 | **`dstip`** | Nullable(IPv6) | Destination IP — always use `ipstr()` for display |
 | **`srcport`** | Nullable(UInt16) | Source port |
@@ -56,8 +191,8 @@ These columns exist on every `$log-*` source.
 | **`dstintf`** | LowCardinality(String) | Destination interface |
 | `srcintfrole` | LowCardinality(String) | Source interface role: `lan`, `wan`, `dmz` |
 | `dstintfrole` | LowCardinality(String) | Destination interface role |
-| **`srccountry`** | LowCardinality(String) | Source country name |
-| **`dstcountry`** | LowCardinality(String) | Destination country name |
+| **`srccountry`** | LowCardinality(String) | Source country name. Private IPs are `Reserved` (tested); exclude with `!= 'Reserved'` |
+| **`dstcountry`** | LowCardinality(String) | Destination country name. Private IPs are `Reserved` (tested) |
 | `srccity` / `dstcity` | LowCardinality(String) | Source/destination city |
 | `srcgeoid` / `dstgeoid` | Nullable(UInt32) | GeoIP ID |
 | `srcname` / `dstname` | LowCardinality(String) | Source/destination hostname/device name |
