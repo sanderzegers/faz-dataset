@@ -8,9 +8,7 @@ All common columns apply (see cols-common.md).
 | **`url`** | Nullable(String) | Full URL path |
 | **`cat`** | Nullable(UInt8) | Numeric web category ID |
 | **`catdesc`** | LowCardinality(String) | Category description (e.g. `"Search Engines"`) |
-| **`action`** | LowCardinality(String) | `passthrough`, `blocked`, `warning`, `authenticate`, `override` |
-| **`utmaction`** | LowCardinality(String) | `allow`, `block` |
-| **`utmevent`** | LowCardinality(String) | `webfilter`, `banned-word`, `web-content`, `command-block`, `script-filter`, `spamfilter`, `general-email-log` |
+| **`action`** | LowCardinality(String) | `passthrough`, `blocked` (tested), plus `warning`, `authenticate`, `override` per schema. Use `action = 'blocked'` for blocks |
 | **`filtertype`** | LowCardinality(String) | What matched: `category`, `urlfilter`, `keyword`, `ftgd` |
 | `ruletype` | LowCardinality(String) | Rule type |
 | `reqtype` | LowCardinality(String) | `direct`, `referral` |
@@ -30,6 +28,16 @@ All common columns apply (see cols-common.md).
 | `sentbyte` / `rcvdbyte` | Nullable | Session bytes |
 | `eventtype` | LowCardinality(String) | `ftgd-cat`, `ftgd-err`, `ftgd-block`, `urlfilter`, `override` |
 | `from` / `to` | LowCardinality(String) | Email from/to (webmail) |
+| `direction` | — | `incoming` / `outgoing` |
+| `srccountry` / `dstcountry` | — | Country (`Reserved` = private IP) |
+| `httpmethod` | — | HTTP method |
+| `profile` | — | Web filter profile name |
+| `crscore` / `crlevel` / `craction` | — | Client reputation score / level / action |
+| `filename` / `filetype` | — | Downloaded file name / type (file-type filtering) |
+| `tdthreatname` / `tdthreattype` | — | Inline threat detection name / type |
+| `urlsource` / `initiator` / `forwardedfor` | — | URL rating source / request initiator / X-Forwarded-For |
+
+> **No `utmaction` or `utmevent` in webfilter logs.** Both exist only in `$log-traffic`, and querying them here fails with "Missing columns". Use `action`.
 
 ## Notable `catdesc` Values
 
@@ -55,10 +63,7 @@ These category descriptions appear frequently in queries and reports:
 -- Blocked categories
 SELECT catdesc, count(*) AS hits
 FROM $log-webfilter
-WHERE $filter
-  AND utmevent IN ('webfilter','banned-word','web-content','command-block','script-filter')
-  AND utmaction IN ('block','blocked','blk')
-  AND catdesc IS NOT NULL
+WHERE $filter AND action = 'blocked' AND catdesc IS NOT NULL
 GROUP BY catdesc
 ORDER BY hits DESC
 
@@ -74,45 +79,25 @@ FROM ###(
 GROUP BY website, catdesc
 ORDER BY hits DESC
 
--- ${WEB_UTM_EVENT} macro = utmevent IN ('webfilter','banned-word','web-content','command-block','script-filter')
 ```
 
 ## Real Values Discovered from FAZ Instance
 
 ### `action` (Webfilter Action)
 
-Observed from FAZ webfilter logs:
+Tested on a live FAZ:
 
 | Value | Notes |
 |---|---|
-| `allow` | Allowed |
-| `block` | Blocked |
-
-### `utmaction` (UTM Action)
-
-| Value | Notes |
-|---|---|
-| `allow` | Allowed |
-| `block` | Blocked |
+| `passthrough` | Allowed |
+| `blocked` | Blocked |
+| (empty) | Rare, a handful of rows |
 
 ### `level` (Webfilter Level)
 
 | Value | Notes |
 |---|---|
 | `information` | Informational |
-
-### `utmevent` (UTM Event)
-
-| Value | Notes |
-|---|---|
-| `webfilter` | Web filter event |
-| `banned-word` | Banned word match |
-| `web-content` | Web content filter |
-| `command-block` | Command block |
-| `script-filter` | Script filter |
-| `spamfilter` | Spam filter |
-| `general-email-log` | General email log |
-
 
 ### `hostname` (Request Hostname)
 

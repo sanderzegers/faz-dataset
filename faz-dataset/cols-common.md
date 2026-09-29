@@ -1,6 +1,27 @@
-# Common Columns — Present on ALL Log Types
+# Common Columns
 
-These columns exist on every `$log-*` source.
+Columns shared across `$log-*` sources, checked against real schemas for traffic, attack, webfilter and event logs. **Not every column is on every log type.** These are known gaps:
+
+| Log type | Missing from its schema |
+|---|---|
+| `$log-traffic` | `direction`, `profile` |
+| `$log-attack`, `$log-webfilter` | `dstname` |
+| `$log-event` | `srcintf`, `dstintf`, `srczone`, `dstzone`, `sessionid`, `sfsid`, `policytype`, `policymode`, `poluuid`, `dstname` |
+
+If unsure, `SELECT * FROM $log-x WHERE $filter LIMIT 1` lists a log type's real columns.
+
+## Device Columns (joined automatically)
+
+FAZ joins these onto every `$log-*` row, so **no `devtable_ext` join is needed** for device names:
+
+| Column | Description |
+|---|---|
+| **`devname`** | FortiGate hostname |
+| **`devid`** | FortiGate serial number |
+| **`vd`** | VDOM name |
+| `devgrps` | Device groups (array) |
+| `csf` | Security Fabric name |
+| `_adomoid` | ADOM OID |
 
 | Column | Type | Description |
 |---|---|---|
@@ -170,8 +191,8 @@ Observed across event logs:
 | **`dstintf`** | LowCardinality(String) | Destination interface |
 | `srcintfrole` | LowCardinality(String) | Source interface role: `lan`, `wan`, `dmz` |
 | `dstintfrole` | LowCardinality(String) | Destination interface role |
-| **`srccountry`** | LowCardinality(String) | Source country name |
-| **`dstcountry`** | LowCardinality(String) | Destination country name |
+| **`srccountry`** | LowCardinality(String) | Source country name. Private IPs are `Reserved` (tested); exclude with `!= 'Reserved'` |
+| **`dstcountry`** | LowCardinality(String) | Destination country name. Private IPs are `Reserved` (tested) |
 | `srccity` / `dstcity` | LowCardinality(String) | Source/destination city |
 | `srcgeoid` / `dstgeoid` | Nullable(UInt32) | GeoIP ID |
 | `srcname` / `dstname` | LowCardinality(String) | Source/destination hostname/device name |

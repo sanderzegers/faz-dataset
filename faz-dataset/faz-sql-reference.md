@@ -94,7 +94,15 @@ ORDER BY hodex
 
 ## ${MACRO} Expansions
 
-> **Custom datasets:** `${THREAT_SRCIP}` / `${THREAT_DSTIP}` are **confirmed not expanded** in GUI datasets. The query fails with a syntax error at `$`. The other `${...}` macros below are unverified. Write the expansion inline instead of the macro.
+> **Custom datasets:** not every `${...}` macro expands in GUI datasets. An unexpanded macro fails with a syntax error at `$`. Tested status:
+>
+> | Status | Macros |
+> |---|---|
+> | Confirmed working | `${REPORT_SESSION}` |
+> | Confirmed failing | `${USER}`, `${THREAT_SRCIP}`, `${THREAT_DSTIP}` |
+> | Unverified | all others |
+>
+> Unless a macro is confirmed working, write its expansion from the tables below inline.
 
 logflag bit constants (expand to numeric strings):
 
@@ -269,7 +277,7 @@ LEFT JOIN $ADOM_ENDPOINT ep ON (CASE WHEN epid < 1024 THEN NULL ELSE epid END) =
 LEFT JOIN $ADOM_ENDUSER eu  ON (CASE WHEN euid < 1024 THEN NULL ELSE euid END) = eu.euid
 ```
 
-**`devtable_ext`** — resolve `dvid` to device name:
+**`devtable_ext`** — resolve `dvid` to device name. This is usually unnecessary, because `$log-*` rows already carry `devname`, `devid` and `vd`:
 ```sql
 LEFT JOIN devtable_ext d ON e.dvid = d.dvid
 -- columns: dvid, devname, devtype, devid
@@ -387,7 +395,7 @@ Rules: always DROP before CREATE, name as `rpt_tmptbl_N`, separate with `;`, fin
 ```sql
 SELECT catdesc, count(*) AS hits
 FROM $log-webfilter
-WHERE $filter AND utmaction IN ('block','blocked','blk') AND catdesc IS NOT NULL
+WHERE $filter AND action = 'blocked' AND catdesc IS NOT NULL
 GROUP BY catdesc
 ORDER BY hits DESC
 ```
@@ -573,6 +581,7 @@ SOC tables:      $event (alerttime)  $incident (createtime)
 Fabric hint:     /*fabricStart*/ (per-ADOM subquery) /*fabricEnd*/
 Avoid:           ebtr_agg_flat()  ebtr_value()  — NOT installed
 
+Macros:          only ${REPORT_SESSION} confirmed in custom datasets. Write others inline
 Identity macros: ${USER}  ${USER_SRC}  ${EP_SRC}  ${SAAS_USER}
 Severity macros: ${LEVEL2SEVID}  ${SEVID2SEVERITY}  ${EVENTSEV2STR}  ${FCTVULNSEV2ID}
 IPS direction:   inline CASE on direction='incoming' (${THREAT_*} not expanded in custom datasets)
