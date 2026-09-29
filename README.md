@@ -1,15 +1,44 @@
-# faz-dataset — Claude Code Skill
+# FortiAnalyzer Dataset Skill for Claude Code
 
-A [Claude Code skill](https://docs.anthropic.com/en/docs/claude-code/skills) that turns Claude into an expert at writing **FortiAnalyzer dataset queries** for use under **Reports > Datasets** (or Report Templates > Chart Dataset) in the FAZ GUI.
+A [Claude Code skill](https://docs.anthropic.com/en/docs/claude-code/skills) that writes **FortiAnalyzer dataset queries** (FAZ SQL) for **Reports > Datasets** in the FAZ GUI. Describe the report you want, and you get a query you can paste straight in.
 
-## What it does
+```
+/faz-dataset Top IPS victims
+```
 
-When invoked, the skill loads:
+```sql
+SELECT victim, sum(totalnum) AS totalnum
+FROM ###(
+    SELECT (CASE WHEN direction='incoming' THEN ipstr(dstip) ELSE ipstr(srcip) END) AS source,
+           (CASE WHEN direction='incoming' THEN ipstr(srcip) ELSE ipstr(dstip) END) AS victim,
+           count(*) AS totalnum
+    FROM $log-attack
+    WHERE $filter
+    GROUP BY source, victim
+    /*SkipSTART*/ORDER BY totalnum DESC/*SkipEND*/
+)### t
+WHERE victim IS NOT NULL
+GROUP BY victim
+ORDER BY totalnum DESC
+```
 
-- The FAZ SQL dialect reference (macros, syntax, query skeletons, hcache patterns)
-- Only the column-reference files for the log types the query needs
+Claude also explains the non-obvious parts. Here, that's why `direction` decides which IP is the victim, and why the `${THREAT_*}` macros are written out inline: they don't expand in custom datasets.
 
-Claude then writes a complete, working query and explains any non-obvious clauses.
+## Tested on a live FortiAnalyzer 7.6
+
+Most FAZ SQL you find online has never been run. This skill's rules come from queries run on a real FAZ 7.6 under Reports > Datasets:
+
+- **Generated queries:** top IPS victims, sessions per subnet by application, malicious websites with source IPs, and failed admin logins per device over time all ran correctly.
+- **Reference patterns:** every core pattern the skill copies from (Top-N, hcache, bandwidth, time series, IPS block rate, attacker/victim) has been run. The one broken pattern was fixed and re-tested.
+- **Columns:** real column lists were dumped for traffic, event, webfilter, attack, virus, app-ctrl, dns, dlp, file-filter and ssl. Documented columns that don't exist were confirmed with direct SELECTs.
+- **Macros:**
+  - These expand in custom datasets: `${REPORT_SESSION}`, `${REPORT_SESSION_WITH_LONGLIVE}`, `${BLOCKED_ACTION}`.
+  - These fail, so the skill writes them out inline: `${USER}`, `${THREAT_*}`, `${LEVEL2SEVID}`.
+- **Version-specific quirks** that the skill knows about:
+  - On 7.6, `utmevent` is empty in traffic logs. Use `countips > 0` and the other `count*` columns instead.
+  - SSL logs use `tlsver`/`cipher`, not `sslversion`/`sslcipher`.
+
+Where FAZ 7.6 and FAZ 8.0 differ, the column files list both sets and label each one. Anything not yet tested is marked as unverified.
 
 ## Supported log types
 
@@ -30,42 +59,46 @@ Claude then writes a complete, working query and explains any non-obvious clause
 
 It also covers the ADOM reference tables, the SOC tables (`$event`, `$incident`), and the `fv_*` materialized views.
 
-The traffic, attack, webfilter and event column files have been checked against real FAZ schemas. The others are documented from reference material and may contain columns that don't exist. `SELECT * FROM $log-<type> WHERE $filter LIMIT 1` lists the real columns for a log type.
-
-## Usage
-
-Install the skill, then in any Claude Code session just describe what you want:
-
-```
-/faz-dataset  show top 10 sources by bytes for FortiGate traffic logs
-```
-
-Or let it trigger automatically when you ask a FAZ dataset question.
-
-## Key conventions enforced
-
-- `FROM $log-<type>` — never a hardcoded table name
-- `WHERE $filter` — mandatory time/device scope
-- `bitAnd(logflag,1)>0` for sessions, `bitAnd(logflag,bitOr(1,32))>0` for bandwidth
-- `###(subquery)###` hcache with `/*SkipSTART*/ORDER BY.../*SkipEND*/`
-- `ipstr()` for IPs, `nullifna()` for `user`/`app` fields
-- `${...}` macro logic written inline. Most macros (e.g. `${USER}`, `${THREAT_*}`) don't expand in custom datasets; `${REPORT_SESSION}` does
-- FAZ helpers in snake_case (`regexp_replace`, `ip_subnet`); ClickHouse functions such as `isIPAddressInRange()` where tested
-
 ## Installation
 
-Copy the `faz-dataset/` directory into your Claude Code skills folder:
+Clone the repo and copy the `faz-dataset/` directory into your Claude Code skills folder:
 
 ```
-~/.claude/skills/faz-dataset/
+git clone https://github.com/sanderzegers/fortianalyzer-dataset-skill.git
+cp -r fortianalyzer-dataset-skill/faz-dataset ~/.claude/skills/
 ```
 
 Claude Code detects `SKILL.md` and registers the skill automatically.
 
+## Usage
+
+In any Claude Code session, describe what you want:
+
+```
+/faz-dataset show top 10 sources by bytes for FortiGate traffic logs
+```
+
+Or ask a FAZ dataset question, and the skill triggers automatically.
+
+## Key conventions enforced
+
+- `FROM $log-<type>`, never a hardcoded table name
+- `WHERE $filter` for the mandatory time and device scope
+- `bitAnd(logflag,1)>0` for sessions, `bitAnd(logflag,bitOr(1,32))>0` for bandwidth
+- `coalesce(sentdelta,sentbyte,0)` for bytes. Summing `sentbyte` alone overcounts long-lived sessions (about 1,600× in testing)
+- `###(subquery)###` hcache with `/*SkipSTART*/ORDER BY.../*SkipEND*/`. The outer query only re-aggregates columns the hcache returns
+- `ipstr()` for IPs, `nullifna()` for `user`/`app` fields
+- `${...}` macros only where confirmed working; everything else is written out inline
+- FAZ helpers in snake_case (`regexp_replace`, `ip_subnet`), and ClickHouse functions such as `isIPAddressInRange()` where tested
+
 ## Documentation
 
-This repo also includes a detailed guide to writing FortiAnalyzer dataset queries — not specific to the Claude skill, but useful for understanding how FAZ SQL works:
+The repo also includes a detailed guide to writing FortiAnalyzer dataset queries. It isn't specific to the Claude skill, but it's useful for understanding how FAZ SQL works:
 
 **[FortiAnalyzer Dataset Query Writing Guide](faz-dataset-query-guide.md)**
 
 Topics covered: query structure, execution model, macros, hcache, performance, and practical patterns.
+
+## Disclaimer
+
+This is an independent community project. It is not affiliated with, endorsed by, or supported by Fortinet. FortiAnalyzer and FortiGate are trademarks of Fortinet, Inc.
