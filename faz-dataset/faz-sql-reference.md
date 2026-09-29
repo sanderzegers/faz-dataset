@@ -44,6 +44,7 @@ GUI Dataset SQL
 | `$last3day_period $filter` | Rolling 3-day lookback (prepend before `$filter`) |
 | `$pre_period` | Period before current window — for before/after comparisons |
 | `$filter-drilldown` | Drilldown filter on outer query only (built-in datasets only) |
+| `$filter-exclude-var` | Seen in built-in datasets inside hcache, paired with `$filter-drilldown` on the outer query. Use `$filter` in custom datasets |
 | `$cust_time_filter(col)` | Time filter for non-log tables (`$event`, `$incident`) |
 | `$cust_time_filter(col, TODAY)` | Same with preset: `TODAY`, `YESTERDAY`, `LAST_N_PERIOD,1` |
 | `$adom_oid` | Integer ADOM OID — rarely needed directly |
@@ -92,6 +93,8 @@ ORDER BY hodex
 ---
 
 ## ${MACRO} Expansions
+
+> **Custom datasets:** `${THREAT_SRCIP}` / `${THREAT_DSTIP}` are **confirmed not expanded** in GUI datasets. The query fails with a syntax error at `$`. The other `${...}` macros below are unverified. Write the expansion inline instead of the macro.
 
 logflag bit constants (expand to numeric strings):
 
@@ -354,7 +357,9 @@ Rules: always DROP before CREATE, name as `rpt_tmptbl_N`, separate with `;`, fin
 | `from_dtime(col)` | Device time → readable datetime string |
 | `logid_to_int(logid)` | logid String → Int for numeric compare |
 | `root_domain(hostname)` | `mail.google.com` → `google.com` |
-| `app_group_name(app)` | App name → application group |
+| `app_group_name(app)` | App to a service-style group (`DNS`, `HTTP`, `LDAP`, `SNMP`, `TCP_High_Ports`), falling back to `proto/port` such as `tcp/27001` |
+| `ip_subnet(col)` | IP to its **fixed /24** as a string, e.g. `10.149.10.0/24`. It doesn't know the real configured subnet size |
+| `isIPAddressInRange(ipstr(col), 'cidr')` | Tests whether an IP is in a CIDR range. Use it to map real subnets in a `CASE` (falling back to `ip_subnet()`) or to filter a range. Tested and working in FAZ |
 | `virusid_to_str(virusid)` | Numeric virus ID → string name |
 | `incid_to_str(incid)` | Numeric incident ID → `"INC-00042"` |
 | `get_devtype(n)` | Numeric device type → string |
@@ -453,11 +458,11 @@ ORDER BY totalnum DESC
 ```
 
 ### Pattern F: Direction-based attacker/victim (IPS)
-`direction='incoming'` means the attack flowed server→client, so the victim is `srcip`. Same logic as `${THREAT_SRCIP}` / `${THREAT_DSTIP}`.
+`direction='incoming'` means the attack flowed server→client, so the victim is `srcip`. Write the CASE inline, because `${THREAT_*}` does not expand in custom datasets.
 ```sql
 SELECT
-    ipstr(${THREAT_SRCIP}) AS attacker,
-    ipstr(${THREAT_DSTIP}) AS victim,
+    ipstr(CASE WHEN direction='incoming' THEN dstip ELSE srcip END) AS attacker,
+    ipstr(CASE WHEN direction='incoming' THEN srcip ELSE dstip END) AS victim,
     count(*) AS hits
 FROM $log-attack
 WHERE $filter
@@ -570,7 +575,7 @@ Avoid:           ebtr_agg_flat()  ebtr_value()  — NOT installed
 
 Identity macros: ${USER}  ${USER_SRC}  ${EP_SRC}  ${SAAS_USER}
 Severity macros: ${LEVEL2SEVID}  ${SEVID2SEVERITY}  ${EVENTSEV2STR}  ${FCTVULNSEV2ID}
-IPS direction:   ${THREAT_SRCIP}  ${THREAT_DSTIP}
+IPS direction:   inline CASE on direction='incoming' (${THREAT_*} not expanded in custom datasets)
 ```
 
 ---
@@ -596,6 +601,24 @@ The FAZ SQL dialect (ANTLR4 grammar) supports:
 ---
 
 ## Real Query Examples (from predefined datasets)
+
+### Top IPS victims (built-in)
+```sql
+SELECT victim, sum(totalnum) AS totalnum
+FROM ###(
+    SELECT (CASE WHEN direction='incoming' THEN ipstr(dstip) ELSE ipstr(srcip) END) AS source,
+           (CASE WHEN direction='incoming' THEN ipstr(srcip) ELSE ipstr(dstip) END) AS victim,
+           count(*) AS totalnum
+    FROM $log
+    WHERE $filter-exclude-var
+    GROUP BY source, victim
+    ORDER BY totalnum DESC
+)### t
+WHERE $filter-drilldown AND victim IS NOT NULL
+GROUP BY victim
+ORDER BY sum(totalnum) DESC
+```
+Custom-dataset equivalent, tested and working: use `$log-attack` and `WHERE $filter`, and drop `$filter-drilldown`.
 
 ### Window function — SD-WAN device down time tracking
 ```sql

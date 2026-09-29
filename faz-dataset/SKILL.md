@@ -67,6 +67,7 @@ When a user asks for help with a dataset query:
 
 - Always use `$log-{type}` as the table in FROM — never hardcode `sp1_FGT_tlog` etc.
 - Always include `$filter` in WHERE — it provides mandatory time/device scope
+- Write `${...}` macro logic inline (e.g. the `direction` CASE for IPS attacker/victim). `${THREAT_*}` is confirmed not expanded in custom datasets
 - Use `coalesce(sentdelta,sentbyte,0)` / `coalesce(rcvddelta,rcvdbyte,0)` for bytes
 - Use `bitAnd(logflag,bitOr(1,32))>0` for bandwidth (includes long-lived sessions)
 - Use `bitAnd(logflag,1)>0` for session counts
